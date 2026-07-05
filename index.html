@@ -97,7 +97,7 @@
           ・メテオ対象ロール：外周1本→外側の塔／外周2本→外周を踏み、向かって<b>真ん中＞右</b>優先。<br>
           ・無職ロール：外周1本→内側の塔／外周2本→外周を踏み、向かって<b>左＞右</b>優先。<br>
           <b>塔2回目</b>：8本。隕石は「DPS群」か「TH(タンク/ヒラ)群」のどちらかに付き、<b>付いたカテゴリ全員＝メテオロール＝英語マーカー(A/B/C/D)</b>、<b>もう片方のカテゴリ＝無職ロール＝数字マーカー(1/2/3/4)</b>。各ブロックは必ずTH1+DPS1なので、ブロック内で英語/数字に1人ずつ割れる。<b>実際にマラソンした2人＝出発点(A/C)の正反対の英語マーカー</b>(半周=対角ちょうどなので出発点には戻らない)。同カテゴリでもマラソンしていない2人は現在地の英語マーカーのまま。<b>無職＝最初の散開位置から45度時計回りの数字</b>(A→1,B→2,C→3,D→4)。※本人にマーカーが無くても同カテゴリなら英語側。<br>
-          <b>隕石マラソン</b>：マーカー持ち2人が隕石を落としながら移動。<b>通常パターン</b>＝自分の塔が対角に出る形。外周を普通に走って落とすだけ。<b>狭パターン</b>＝塔が対角から1つずれて出る形。氷と炎の交点を通りながら“山”を作るように回って落とす(外周を大回りする感覚)。マクロ「/automove on &lt;wait.1&gt;」+「/automove off」連打＋カメラを進行方向へ振ると一定歩幅で動ける。<br>
+          <b>隕石マラソン</b>：マーカー持ち2人が隕石を落としながら移動。<b>どのパターンでも着弾は必ず7個</b>。<b>通常パターン</b>＝自分の塔が対角に出る形。外周を普通に走って落とすだけ。<b>狭パターン</b>＝塔が対角から1つずれて出る形。氷と炎の交点を通りながら“山”を作るように回って落とす(外周を大回りする感覚)。マクロ「/automove on &lt;wait.1&gt;」+「/automove off」連打＋カメラを進行方向へ振ると一定歩幅で動ける。※本シミュのマラソンは通常パターンの自動再生のみ(狭・GGは未対応)。<br>
           <div class="src">出典：ARUTORA「雷槍・聖杖」解説／たまごもち氏Lodestone(理屈編・実践編)／neko14攻略めも 等。実際の座標・タイミングはランダム要素があるため、本ツールは練習用に簡略化したモデルです。必ず自分のPTの取り決め・マクロと照らし合わせてください。</div>
         </div>
       </details>
@@ -379,7 +379,7 @@ function askChoice(promptText, choices, correctId, timeMs, cb, explain){
       if(answered) return;
       const ok = correctIds.includes(ch.id);
       if(reviewMode){
-        if(!ok){ setMsg('緑の塔をタップして次へ'); return; } // 間違いは減点せずナビだけ
+        // 確認モードは正誤を問わない：どこをタップしても次へ進む(緑=正解位置の提示のみ)
         answered=true; clearTimer();
         cb(true);
       } else {
@@ -537,52 +537,39 @@ async function startRun(){
   });
   await wait(MOVE_MS + 400);
 
-  // Phase 4: comet marathon (GG pattern)
-  document.getElementById('phaseLabel').textContent='フェーズ4: 隕石マラソン (GGパターン)';
-  const PULSES=4, STEP=45;
+  // Phase 4: 隕石マラソン(自動再生)。メテオ2人が7個落としながら対角へ走る。
+  // ※現モデルは「通常パターン」(塔が対角に出る形)のみ。狭・GGパターンは未対応(第2段階で対応予定)。
+  // どのパターンでも着弾は必ず7個、という仕様に合わせ 180度を7分割して落とす。
+  document.getElementById('phaseLabel').textContent='フェーズ4: 隕石マラソン (通常パターン・自動再生)';
+  svg.querySelectorAll('.slot').forEach(el=>el.remove()); // 前フェーズの選択肢の取り残し対策
+  const DROPS=7, MARATHON_ARC=180, DROP_STEP=MARATHON_ARC/DROPS;
+  const DROP_MS=Math.round(MOVE_MS*0.7); // 7歩あるので1歩は少し短めに
   const h1=cometRoles[0], h2=cometRoles[1];
-  let baseAngle1=tokens[h1].angle, baseAngle2=tokens[h2].angle;
-  if(iAmComet){
-    const myBase = selectedRole===h1? baseAngle1: baseAngle2;
-    const otherRole = selectedRole===h1? h2: h1;
-    const otherBase = selectedRole===h1? baseAngle2: baseAngle1;
-    setMsg('あなたはマーカー持ち：1歩ずつ半周分、外周の次の塔へタップで移動');
-    for(let i=1;i<=PULSES;i++){
-      const targetAngle = myBase + STEP*i*Math.sign(1);
-      const correctId='step';
-      const decoy1 = myBase + STEP*(i-1); // previous spot (wrong: already resolved)
-      const decoy2 = myBase - STEP*i; // wrong direction
-      const choices=[
-        {id:'step', angle:targetAngle, r:R_OUT, label:(i)+''},
-        {id:'back', angle:decoy1, r:R_OUT, label:'✕'},
-        {id:'rev', angle:decoy2, r:R_OUT, label:'✕'},
-      ];
-      await new Promise(resolve=>{
-        askChoice(`隕石${i}/${PULSES}: 次の外周へ移動！`, choices, 'step', timeLimitMs, (ok)=>{
-          if(ok) moveTokenAnimated(selectedRole, targetAngle, R_OUT, MOVE_MS);
-          resolve();
-        }, `隕石を落としながら同じ回転方向へ1歩(45度)。緑が次の着弾点(${i}個目)`);
-      });
-      clearTimer();
-      // auto move the other comet holder mirrored
-      const otherTarget = otherBase + STEP*i;
-      moveTokenAnimated(otherRole, otherTarget, R_OUT, MOVE_MS);
-      await wait(MOVE_MS + 300);
-    }
-  } else {
-    setMsg('あなたは塔をキープ。マーカー持ちが半周ずつ移動するのを見ながら位置を維持');
-    for(let i=1;i<=PULSES;i++){
-      moveTokenAnimated(h1, baseAngle1 + STEP*i, R_OUT, MOVE_MS);
-      moveTokenAnimated(h2, baseAngle2 + STEP*i, R_OUT, MOVE_MS);
-      await new Promise(resolve=>{
-        askChoice(`隕石${i}/${PULSES}: 自分の塔をキープ！(タップで確認)`, [
-          {id:'hold', angle:tokens[selectedRole].angle, r:tokens[selectedRole].r, label:'keep'}
-        ], 'hold', timeLimitMs, ()=>resolve(), 'あなたは無職なので塔をキープ。メテオ2人が外周を走るのを見守る');
-      });
-      clearTimer();
-      await wait(MOVE_MS + 300);
-    }
+  const baseAngle1=tokens[h1].angle, baseAngle2=tokens[h2].angle;
+  setMsg(iAmComet
+    ? 'あなたはメテオ担当：隕石を7回落としながら対角へ走る(自動再生)'
+    : '自分の塔をキープ。メテオ2人が7個落としながら走るのを見守る(自動再生)');
+  const impactEls=[];
+  for(let i=1;i<=DROPS;i++){
+    document.getElementById('phaseLabel').textContent=`フェーズ4: 隕石マラソン 着弾 ${i}/${DROPS}`;
+    const a1=baseAngle1 + DROP_STEP*i, a2=baseAngle2 + DROP_STEP*i;
+    moveTokenAnimated(h1, a1, R_OUT, DROP_MS);
+    moveTokenAnimated(h2, a2, R_OUT, DROP_MS);
+    await wait(DROP_MS + 150);
+    // 着弾マーク(橙の円)を落とした地点に描画。最後にまとめて消す。
+    [a1, a2].forEach(a=>{
+      const p=polar(a, R_OUT);
+      const im=svgEl('circle',{cx:p.x, cy:p.y, r:8, fill:'#ff8c42', opacity:0.75, 'pointer-events':'none'});
+      svg.insertBefore(im, svg.querySelector('g')); // トークンより背面に置く
+      impactEls.push(im);
+    });
+    await wait(250);
   }
+  // 終点を対角ちょうどに確定(累積誤差防止)し、着弾マークを消す
+  moveTokenAnimated(h1, baseAngle1 + MARATHON_ARC, R_OUT, 300);
+  moveTokenAnimated(h2, baseAngle2 + MARATHON_ARC, R_OUT, 300);
+  await wait(BEAT_MS);
+  impactEls.forEach(el=>el.remove());
 
   // Phase 5: 塔2回目 (8マーカーの塔)
   document.getElementById('phaseLabel').textContent='フェーズ5: 塔2回目 (8マーカー)';
