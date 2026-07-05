@@ -75,6 +75,15 @@
         <div class="speed-btn" data-mode="practice">練習モード<br><span style="font-size:10px;color:var(--dim);">制限時間内に自分で判断</span></div>
       </div>
     </div>
+    <div class="panel">
+      <h2>マラソンパターン</h2>
+      <div class="speed-grid" id="patternGrid">
+        <div class="speed-btn selected" data-pattern="random">ランダム</div>
+        <div class="speed-btn" data-pattern="normal">通常</div>
+        <div class="speed-btn" data-pattern="semai">狭</div>
+      </div>
+      <div class="seconds-hint">通常＝メテオの塔が対角に出る。狭＝片方だけ対角から45度ずれ、そのランナーは氷と炎の交点を通る「お山」ルートで距離を稼ぐ(終点はどちらもC→A/A→Cの対角・時計回り)。GGパターン(発生率約5%)は未対応。</div>
+    </div>
     <div class="panel" id="speedPanel">
       <h2 id="speedPanelTitle">確認モードの待ち時間(秒)</h2>
       <div class="seconds-row">
@@ -93,11 +102,11 @@
           <b>初期散開(基本配置)</b>：A(北)=MT+D3／B(東)=D2+H2／C(南)=ST+D4／D(西)=H1+D1<br>
           <b>隕石マーカー(メテオ)</b>：ランダム2名(同カテゴリ=DPS2人 or TH2人)に付与。対象は必ず南北(A/C)固定。東西(B/D)に付いた場合は固定対角で交代 ＝ <b>D⇔A(北西)・B⇔C(南東)</b>(移動先が相方メテオで埋まっている時のみ逆側へ)。<b>動くのはメテオ本人と、移動先の同カテゴリの人(DPS⇔DPS or TH⇔TH)だけ。元のペアの相方はついていかない</b>(例：D=H1+D1でD1がメテオならH1はDに残留、D1はA/Cへ移動しその同カテゴリの人と入れ替わる)。<br>
           <b>塔(コンヴィクション)</b>：塔1回目・塔2回目とも8本(1人1本)。塔1回目は方角ブロックごとに「外周2＋内周0」または「外周1＋内周1」で、全体では外周6:内周2 or 外周5:内周3。<b>各ブロック必ず1本はマーカーにかぶる形で外周に出る</b>(外周2本のブロックは「マーカー上＋左右どちらか」の構成)。内周2本のブロックは存在しない。<br>
-          <b>塔1回目の踏み分け</b>：<br>
-          ・メテオ対象ロール：外周1本→外側の塔／外周2本→外周を踏み、向かって<b>真ん中＞右</b>優先。<br>
-          ・無職ロール：外周1本→内側の塔／外周2本→外周を踏み、向かって<b>左＞右</b>優先。<br>
+          <b>塔1回目の踏み分け</b>(※塔2回目と同じく<b>カテゴリ判定</b>。マーカーが無くても隕石が付いた群(DPS群orTH群)ならメテオロール)：<br>
+          ・メテオロール：外周1本→外側の塔／外周2本→外周を踏み、向かって<b>真ん中＞右</b>優先。<br>
+          ・無職ロール(逆カテゴリ)：外周1本→内側の塔／外周2本→メテオロールが取らない方の外周(左＞右)。<br>
           <b>塔2回目</b>：8本。隕石は「DPS群」か「TH(タンク/ヒラ)群」のどちらかに付き、<b>付いたカテゴリ全員＝メテオロール＝英語マーカー(A/B/C/D)</b>、<b>もう片方のカテゴリ＝無職ロール＝数字マーカー(1/2/3/4)</b>。各ブロックは必ずTH1+DPS1なので、ブロック内で英語/数字に1人ずつ割れる。<b>実際にマラソンした2人＝出発点(A/C)の正反対の英語マーカー</b>(半周=対角ちょうどなので出発点には戻らない)。同カテゴリでもマラソンしていない2人は現在地の英語マーカーのまま。<b>無職＝最初の散開位置から45度時計回りの数字</b>(A→1,B→2,C→3,D→4)。※本人にマーカーが無くても同カテゴリなら英語側。<br>
-          <b>隕石マラソン</b>：マーカー持ち2人が隕石を落としながら移動。<b>どのパターンでも着弾は必ず7個</b>。<b>通常パターン</b>＝自分の塔が対角に出る形。外周を普通に走って落とすだけ。<b>狭パターン</b>＝塔が対角から1つずれて出る形。氷と炎の交点を通りながら“山”を作るように回って落とす(外周を大回りする感覚)。マクロ「/automove on &lt;wait.1&gt;」+「/automove off」連打＋カメラを進行方向へ振ると一定歩幅で動ける。※本シミュのマラソンは通常パターンの自動再生のみ(狭・GGは未対応)。<br>
+          <b>隕石マラソン</b>：マーカー持ち2人が隕石を落としながら時計回りに移動。<b>どのパターンでも着弾は必ず7個</b>、終点はC→A/A→Cの対角。<b>通常パターン</b>＝自分の塔が対角に出る形。外周を普通に走って落とすだけ。<b>狭パターン</b>＝片方だけ塔が対角から45度ずれて出る形(両方ずれたら位置関係は対角のままなので実質通常)。ずれた側は距離が足りないので、氷と炎の交点を通りながら“お山”を作るように内側へ膨らんで落とす。遠い側にずれた場合は外周を普通に走ればよい。マクロ「/automove on &lt;wait.1&gt;」+「/automove off」連打＋カメラを進行方向へ振ると一定歩幅で動ける。※GGパターン(発生率約5%)は本シミュ未対応。<br>
           <div class="src">出典：ARUTORA「雷槍・聖杖」解説／たまごもち氏Lodestone(理屈編・実践編)／neko14攻略めも 等。実際の座標・タイミングはランダム要素があるため、本ツールは練習用に簡略化したモデルです。必ず自分のPTの取り決め・マクロと照らし合わせてください。</div>
         </div>
       </details>
@@ -183,7 +192,7 @@ function shuffle(arr){
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 // ---------- setup screen ----------
-let selectedRole=null, timeLimitMs=20000, reviewMode=true;
+let selectedRole=null, timeLimitMs=20000, reviewMode=true, marathonPattern='random';
 const roleGrid=document.getElementById('roleGrid');
 Object.keys(ROLES).forEach(id=>{
   const r=ROLES[id];
@@ -209,6 +218,13 @@ function setSeconds(sec){
 }
 secondsSlider.oninput=()=> setSeconds(parseInt(secondsSlider.value,10));
 secondsInput.oninput=()=>{ if(secondsInput.value!=='') setSeconds(parseInt(secondsInput.value,10)||DEFAULT_SECONDS.practice); };
+document.querySelectorAll('#patternGrid .speed-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#patternGrid .speed-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    marathonPattern = btn.dataset.pattern;
+  };
+});
 document.querySelectorAll('#modeGrid .speed-btn').forEach(btn=>{
   btn.onclick=()=>{
     document.querySelectorAll('#modeGrid .speed-btn').forEach(b=>b.classList.remove('selected'));
@@ -500,16 +516,29 @@ async function startRun(){
   });
   await wait(MOVE_MS + 400);
 
+  // マラソンパターンをここで確定(狭は塔1回目の出現位置に影響するため、塔生成より前に決める)
+  const patternThisRun = marathonPattern==='random' ? pick(['normal','semai']) : marathonPattern;
+  const patternJP = patternThisRun==='semai' ? '狭パターン' : '通常パターン';
+  const mountainRunner = patternThisRun==='semai' ? pick(cometRoles) : null;
+  // 狭: 山ランナーの対角ブロック(=走った先)の塔がマーカー上ではなく45度手前(斜めマーカー上)にずれて出る
+  const shiftedBlock = mountainRunner ? oppositeAC(finalBlock[mountainRunner]) : null;
+
   // Phase 3: 塔1回目
   document.getElementById('phaseLabel').textContent='フェーズ3: 塔1回目 (コンヴィクション)';
   const towerPattern = generateTowerPattern();
+  if(shiftedBlock){
+    const tp=towerPattern[shiftedBlock];
+    tp.outer = tp.outer.map(o=> o===0 ? -1.8 : o); // -1.8*25度=45度手前 = 斜め(数字)マーカー上
+    tp.meteorTower = -1.8; // このブロックのメテオロール担当塔はずれた方
+  }
   towerAssign = assignTowerSlots(finalBlock, cometRoles, towerPattern);
   const mySlot = towerAssign[selectedRole]; // {ring, off}
+  const iAmCometRole1 = isCometRole(selectedRole); // 塔1回目もカテゴリ判定(マーカー無しでも同カテゴリならメテオロール)
   const ringJP = mySlot.ring==='outer'?'外周':'内周';
-  const lrJP = mySlot.off<0?'向かって左': mySlot.off>0?'向かって右':'真ん中(マーカー上)';
-  const ruleNote = iAmComet
-    ? (mySlot.ring==='outer'? '(メテオ: 外周1本→外側／外周2本→真ん中>右)' : '(メテオ)')
-    : (mySlot.ring==='outer'? '(無職: 外周2本→左>右=反時計側優先)' : '(無職: 外周1本→内側)');
+  const lrJP = mySlot.off<=-1.5?'対角から45度ずれ(斜めマーカー上・狭)': mySlot.off<0?'向かって左': mySlot.off>0?'向かって右':'真ん中(マーカー上)';
+  const ruleNote = iAmCometRole1
+    ? (iAmComet? '(メテオロール: 外周。2本なら真ん中>右)' : `(マーカー無しでも${markedCategory()==='dps'?'DPS群':'TH群'}なのでメテオロール=外周)`)
+    : (mySlot.ring==='outer'? '(無職: メテオロールが取らない方の外周)' : '(無職: 外周1本→内側)');
   setMsg(`塔1回目。あなたは【${ringJP}${mySlot.ring==='outer'?'・'+lrJP:''}】 ${ruleNote}`);
   // 全ブロックの塔スロットを描画
   const choices=[];
@@ -526,7 +555,7 @@ async function startRun(){
   });
   const myBlock=finalBlock[selectedRole];
   const correctId = myBlock+'_'+mySlot.ring+'_'+mySlot.off;
-  const t1explain = `${myBlock}ブロックは外周${towerPattern[myBlock].outer.length}本。${iAmComet?'メテオ':'無職'}のあなたは【${ringJP}${mySlot.ring==='outer'?'・'+lrJP:''}】${ruleNote}`;
+  const t1explain = `${myBlock}ブロックは外周${towerPattern[myBlock].outer.length}本。${iAmCometRole1?'メテオロール':'無職'}のあなたは【${ringJP}${mySlot.ring==='outer'?'・'+lrJP:''}】${ruleNote}`;
   await new Promise(resolve=>{
     askChoice('塔1回目：自分の塔をタップ', choices, correctId, timeLimitMs, ()=>resolve(), t1explain);
   });
@@ -538,39 +567,71 @@ async function startRun(){
   });
   await wait(MOVE_MS + 400);
 
-  // Phase 4: 隕石マラソン(自動再生)。メテオ2人が7個落としながら対角へ走る。
-  // ※現モデルは「通常パターン」(塔が対角に出る形)のみ。狭・GGパターンは未対応(第2段階で対応予定)。
-  // どのパターンでも着弾は必ず7個、という仕様に合わせ 180度を7分割して落とす。
-  document.getElementById('phaseLabel').textContent='フェーズ4: 隕石マラソン (通常パターン・自動再生)';
+  // Phase 4: 隕石マラソン(自動再生)。メテオ2人が7個落としながら時計回りに走る。
+  // 通常＝両者とも塔が対角(180度) → 外周をそのまま走る。
+  // 狭＝片方だけ塔が対角から45度手前(135度)にずれて出る → そのランナーは氷と炎の交点を通る「お山」ルートで距離を稼ぐ。
+  //   どちらのパターンでも着弾は必ず7個。GGパターン(発生率約5%)は未対応。
+  //   ※patternThisRun/mountainRunner/shiftedBlockはフェーズ3の前で確定済み(塔の出現位置に影響するため)。
+  document.getElementById('phaseLabel').textContent=`フェーズ4: 隕石マラソン (${patternJP}・自動再生)`;
   svg.querySelectorAll('.slot').forEach(el=>el.remove()); // 前フェーズの選択肢の取り残し対策
-  const DROPS=7, MARATHON_ARC=180, DROP_STEP=MARATHON_ARC/DROPS;
+  const DROPS=7;
   const DROP_MS=Math.round(MOVE_MS*0.7); // 7歩あるので1歩は少し短めに
   const h1=cometRoles[0], h2=cometRoles[1];
   const baseAngle1=tokens[h1].angle, baseAngle2=tokens[h2].angle;
-  setMsg(iAmComet
-    ? 'あなたはメテオ担当：隕石を7回落としながら対角へ走る(自動再生)'
-    : '自分の塔をキープ。メテオ2人が7個落としながら走るのを見守る(自動再生)');
+  // 盤面演出: 炎の円4つ(東西南北)＋氷の交点(斜め4点)。マラソン中のみ表示。
+  const fieldEls=[];
+  const bgAnchor=()=>svg.querySelector('g');
+  [0,90,180,270].forEach(a=>{
+    const p=polar(a,92);
+    const c=svgEl('circle',{cx:p.x, cy:p.y, r:66, fill:'#ff7b2e', opacity:0.13, 'pointer-events':'none'});
+    svg.insertBefore(c, bgAnchor()); fieldEls.push(c);
+  });
+  [45,135,225,315].forEach(a=>{
+    const p=polar(a,105);
+    const t=svgEl('text',{x:p.x, y:p.y+5, 'text-anchor':'middle', 'font-size':16, fill:'#9fd8ff', opacity:0.9, 'pointer-events':'none'});
+    t.textContent='❄'; svg.insertBefore(t, bgAnchor()); fieldEls.push(t);
+  });
+  // 各ランナーの着弾座標列。山ルート(狭)は塔が45度手前(アーク135度)＋2・5個目を内側(氷と炎の交点付近)に落として距離を稼ぐ。
+  const waypoints=(base, isMountain)=>{
+    const arc = isMountain ? 135 : 180;
+    const pts=[];
+    for(let i=1;i<=DROPS;i++){
+      const rad = (isMountain && (i===2 || i===5)) ? R_IN+10 : R_OUT;
+      pts.push({angle: base + (arc/DROPS)*i, rad});
+    }
+    return pts;
+  };
+  const arc1 = h1===mountainRunner ? 135 : 180;
+  const arc2 = h2===mountainRunner ? 135 : 180;
+  const wp1=waypoints(baseAngle1, h1===mountainRunner);
+  const wp2=waypoints(baseAngle2, h2===mountainRunner);
+  setMsg(
+    iAmComet
+      ? (selectedRole===mountainRunner
+          ? '狭パターン：あなたの塔が対角から45度ずれ！ 氷と炎の交点を通る「お山」ルートで7個落とす(自動再生)'
+          : `あなたはメテオ担当：隕石を7回落としながら時計回りに対角へ走る(自動再生)${patternThisRun==='semai'?'。相方が狭(お山)側':''}`)
+      : `自分の塔をキープ。メテオ2人が7個落としながら走るのを見守る(${patternJP}・自動再生)`);
   const impactEls=[];
   for(let i=1;i<=DROPS;i++){
-    document.getElementById('phaseLabel').textContent=`フェーズ4: 隕石マラソン 着弾 ${i}/${DROPS}`;
-    const a1=baseAngle1 + DROP_STEP*i, a2=baseAngle2 + DROP_STEP*i;
-    moveTokenAnimated(h1, a1, R_OUT, DROP_MS);
-    moveTokenAnimated(h2, a2, R_OUT, DROP_MS);
+    document.getElementById('phaseLabel').textContent=`フェーズ4: 隕石マラソン(${patternJP}) 着弾 ${i}/${DROPS}`;
+    moveTokenAnimated(h1, wp1[i-1].angle, wp1[i-1].rad, DROP_MS);
+    moveTokenAnimated(h2, wp2[i-1].angle, wp2[i-1].rad, DROP_MS);
     await wait(DROP_MS + 150);
     // 着弾マーク(橙の円)を落とした地点に描画。最後にまとめて消す。
-    [a1, a2].forEach(a=>{
-      const p=polar(a, R_OUT);
+    [wp1[i-1], wp2[i-1]].forEach(w=>{
+      const p=polar(w.angle, w.rad);
       const im=svgEl('circle',{cx:p.x, cy:p.y, r:8, fill:'#ff8c42', opacity:0.75, 'pointer-events':'none'});
-      svg.insertBefore(im, svg.querySelector('g')); // トークンより背面に置く
+      svg.insertBefore(im, bgAnchor()); // トークンより背面に置く
       impactEls.push(im);
     });
     await wait(250);
   }
-  // 終点を対角ちょうどに確定(累積誤差防止)し、着弾マークを消す
-  moveTokenAnimated(h1, baseAngle1 + MARATHON_ARC, R_OUT, 300);
-  moveTokenAnimated(h2, baseAngle2 + MARATHON_ARC, R_OUT, 300);
+  // 終点を自分の塔の位置(通常=対角180度/狭=135度)に確定(累積誤差防止)し、演出を消す
+  moveTokenAnimated(h1, baseAngle1 + arc1, R_OUT, 300);
+  moveTokenAnimated(h2, baseAngle2 + arc2, R_OUT, 300);
   await wait(BEAT_MS);
   impactEls.forEach(el=>el.remove());
+  fieldEls.forEach(el=>el.remove());
 
   // Phase 5: 塔2回目 (8マーカーの塔)
   document.getElementById('phaseLabel').textContent='フェーズ5: 塔2回目 (8マーカー)';
@@ -672,33 +733,27 @@ function generateTowerPattern(){
 // 塔1回目：ロールごとに具体的な塔(ring=outer/inner, off=-1(向かって左)・0(真ん中=マーカー上)・+1(右))を決める。
 // マクロ: 外周2本→ メテオ=真ん中>右, 無職=それ以外(左>右=反時計側優先)。外周1本→ メテオ等優先が外周,残りが内周。
 function assignTowerSlots(finalB, cometArr, pattern){
+  // メテオロール=隕石が付いたカテゴリ(DPS群 or TH群)の全員。本人にマーカーが無くても同カテゴリなら外周担当。
+  // 各ブロックは必ずTH1+DPS1なので、ブロック内は常に「メテオロール1人＋無職1人」になる。
+  const cometCat = roleCat(cometArr[0]);
   const blocks={A:[],B:[],C:[],D:[]};
   Object.keys(finalB).forEach(r=>blocks[finalB[r]].push(r));
   const assign={};
   Object.keys(blocks).forEach(b=>{
     const pat=pattern[b];
-    // 優先度: メテオ3 > DPS2 > TH1
-    const scored=blocks[b].map(r=>({r, score: cometArr.includes(r)?3:(ROLES[r].cls==='dps'?2:1), comet:cometArr.includes(r)}))
-                          .sort((a,c)=>c.score-a.score);
+    const meteorRole = blocks[b].find(r=>roleCat(r)===cometCat);   // メテオロール(カテゴリ)
+    const jobless    = blocks[b].find(r=>roleCat(r)!==cometCat);   // 無職ロール
     if(pat.outer.length===2){
-      const comet=scored.find(s=>s.comet);
-      if(comet){
-        // メテオ: 真ん中(マーカー上)>右 の優先で選ぶ
-        const cometOff = pat.outer.includes(0)? 0 : Math.max(...pat.outer);
-        const otherOff = pat.outer.find(o=>o!==cometOff);
-        assign[comet.r]={ring:'outer',off:cometOff};
-        const other=scored.find(s=>!s.comet);
-        if(other) assign[other.r]={ring:'outer',off:otherOff};
-      } else {
-        // 無職2人: 向かって左(反時計側)から優先度順
-        const sorted=pat.outer.slice().sort((a,c)=>a-c);
-        assign[scored[0].r]={ring:'outer',off:sorted[0]};
-        if(scored[1]) assign[scored[1].r]={ring:'outer',off:sorted[1]};
-      }
+      // メテオロール: 真ん中(マーカー上)>右 の優先。狭でずれた塔(meteorTower)があればそちら。無職: それ以外の外周塔
+      const meteorOff = pat.meteorTower!==undefined ? pat.meteorTower
+                      : pat.outer.includes(0)? 0 : Math.max(...pat.outer);
+      const otherOff = pat.outer.find(o=>o!==meteorOff);
+      assign[meteorRole]={ring:'outer',off:meteorOff};
+      if(jobless!==undefined) assign[jobless]={ring:'outer',off:otherOff};
     } else {
-      // 外1(マーカー上)+内1: 優先度高(メテオ>DPS>TH)が外周、残りが内周
-      assign[scored[0].r]={ring:'outer',off:pat.outer[0]};
-      if(scored[1]) assign[scored[1].r]={ring:'inner',off:pat.inner[0]};
+      // 外1(マーカー上/狭ならずれた位置)+内1: メテオロール=外周、無職=内周
+      assign[meteorRole]={ring:'outer',off:pat.outer[0]};
+      if(jobless!==undefined) assign[jobless]={ring:'inner',off:pat.inner[0]};
     }
   });
   return assign;
