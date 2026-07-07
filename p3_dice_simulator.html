@@ -13,6 +13,9 @@
   ・連旋(内側/外側)の判定は「盤面中央寄り/外周寄り」の2択タップのみ。実際の被弾範囲の細かい図形は省略。
   ・矢印持ち(スパイン/イルーシヴ)の初期固定は「イルーシヴ=西(D)固定、スパイン=東(B)固定」という
     PT取り決めベースの簡略ルールとして扱う。
+  ・4塔(ダークドラゴンダイブ)のペア配置・調整優先度は記事ベースの仮モデル(PTマクロ確定後に精緻化予定)。
+  ・ゲイルスコグルは引き続き省略。
+  ・ソウルテザーの線は必ずタンクが取る前提(線取りの奪い合いは省略)。
 -->
 <style>
   :root{
@@ -108,8 +111,10 @@
           <b>散開優先度(PT取り決め)</b>：西 H1/MT/ST/D1/D2/D3/D4/H2 東(H1が最西優先、H2が最東優先)。同じ役目が複数人いる時はこの順で西から埋める。<b>矢印固定：イルーシヴ→西(D)、スパイン→東(B)</b>。矢印持ちの位置を先に固定し、残りを優先度で埋める。<br>
           <b>塔の出現(簡略・固定)</b>：1番塔3本＝西(D)・南(C)・東(B)。2番塔2本＝北西寄り・北東寄り。3番塔3本＝西・南・東(1番と同位置)。<br>
           <b>連旋</b>：「内→外」か「外→内」を開始時に抽選。1回目・2回目でその通り／逆に内外をタップで回答。<br>
-          <b>時系列</b>：①初期散開(1番=西/南/東、他=北に集合) → ②1番着弾(塔3本・連旋1回目) → ③塔踏み1(3番が西/南/東、2番は北西/北東へ散開) → ④2番着弾(塔2本・連旋2回目) → ⑤塔踏み2(初期散開で西/東にいた1番の2人が北西/北東塔、3番は西/南/東へ散開) → ⑥3番着弾(塔3本) → ⑦塔踏み3(2番2人＋南にいた1番1人が優先度順に西/南/東) → ⑧リザルト。<br>
-          <b>簡略化した点</b>：塔の詳細な出現角度は固定モデル。ゲイルスコグル(直線範囲)は省略。2番の立ち位置は北西/北東の2択に簡略化。連旋は中央寄り/外周寄りの2択タップで判定。
+          <b>時系列</b>：①初期散開(1番=西/南/東、他=北に集合) → ②1番着弾(塔3本・連旋1回目) → ③塔踏み1(3番が西/南/東、2番は北西/北東へ散開) → ④2番着弾(塔2本・連旋2回目) → ⑤塔踏み2(初期散開で西/東にいた1番の2人が北西/北東塔、3番は西/南/東へ散開) → ⑥3番着弾(塔3本) → ⑦塔踏み3(2番2人＋南にいた1番1人が優先度順に西/南/東) → ⑧最終配置確認 → ⑨4塔散開(斜め4方向にペアで散開) → ⑩4塔踏み(必要人数抽選・調整役が優先度で調整) → ⑪ソウルテザー(MT=分身線/ST=ボス線/他は南待機) → ⑫リザルト。<br>
+          <b>簡略化した点</b>：塔の詳細な出現角度は固定モデル。ゲイルスコグル(直線範囲)は省略。2番の立ち位置は北西/北東の2択に簡略化。連旋は中央寄り/外周寄りの2択タップで判定。<br>
+          <b>4塔(ダークドラゴンダイブ)</b>：斜め4方向(北東/南東/南西/北西)にペアで散開。固定役(H1/H2/D3/D4)は動かず、調整役(MT/ST/D1/D2)がMT&gt;ST&gt;D1&gt;D2の優先度で 自枠&gt;左&gt;右&gt;対角 の順に空きのある塔へ調整。塔の柱の数=必要人数(1〜4・合計8)。<br>
+          <b>ソウルテザー</b>：MT=分身線(無敵受け)、ST=ボス線(激減受け)、他6人は南に集合して待機。
           <div class="src">実際の座標・タイミングにはランダム要素や細かい前後位置があるため、本ツールは練習用に簡略化したモデルです。必ず自分のPTの取り決めと照らし合わせてください。</div>
         </div>
       </details>
@@ -543,6 +548,72 @@ const WSE_LABEL = {W:'西(D)', S:'南(C)', E:'東(B)'};
 const NWNE_ANGLE = {NW:315, NE:45};
 const NWNE_LABEL = {NW:'北西', NE:'北東'};
 
+// ---------- 4塔(ダークドラゴンダイブ)+ソウルテザー: 仮モデル定数 ----------
+// 斜め4方向。マーカー4=北西/1=北東/2=南東/3=南西。時計回り順: NW→NE→SE→SW
+const DIAG_POS = ['NW','NE','SE','SW'];
+const DIAG_ANGLE = {NW:315, NE:45, SE:135, SW:225};
+const DIAG_LABEL = {NW:'北西(4)', NE:'北東(1)', SE:'南東(2)', SW:'南西(3)'};
+const DIAG_CW  = {NW:'NE', NE:'SE', SE:'SW', SW:'NW'}; // 時計回り(右隣)
+const DIAG_CCW = {NW:'SW', NE:'NW', SE:'NE', SW:'SE'}; // 反時計回り(左隣)
+const DIAG_OPP = {NW:'SE', NE:'SW', SE:'NW', SW:'NE'}; // 対角
+// ペア割り当て(仮モデル・固定): 北西=MT+D3, 北東=ST+D4, 南西=H1+D1, 南東=H2+D2
+const PAIR_OF_POS = {
+  NW:{fixed:'D3', adj:'MT'},
+  NE:{fixed:'D4', adj:'ST'},
+  SE:{fixed:'H2', adj:'D2'},
+  SW:{fixed:'H1', adj:'D1'},
+};
+const HOME_OF_ADJ = {MT:'NW', ST:'NE', D1:'SW', D2:'SE'};
+const ADJ_PRIORITY = ['MT','ST','D1','D2'];
+// 合計8になる、各塔1〜4の組み合わせ全パターンを事前計算
+const TOWER_COMBOS = (()=>{
+  const combos=[];
+  for(let a=1;a<=4;a++)for(let b=1;b<=4;b++)for(let c=1;c<=4;c++)for(let d=1;d<=4;d++){
+    if(a+b+c+d===8) combos.push([a,b,c,d]);
+  }
+  return combos;
+})();
+function drawTowerCounts(){
+  const combo = shuffle(pick(TOWER_COMBOS)); // ランダムな組み合わせ、かつ各位置へのランダム割付
+  const counts={};
+  DIAG_POS.forEach((p,i)=> counts[p]=combo[i]);
+  return counts;
+}
+// 決定的な塔割り当てアルゴリズム: 固定役がまず自ペアの塔を1確保→調整役がMT>ST>D1>D2の順に 自枠>左>右>対角 で埋める
+function assignDiagTowers(counts){
+  const need = Object.assign({}, counts);
+  const assign = {}; // role -> position
+  DIAG_POS.forEach(p=>{
+    const fixedRole = PAIR_OF_POS[p].fixed;
+    assign[fixedRole]=p;
+    need[p]-=1;
+  });
+  ADJ_PRIORITY.forEach(role=>{
+    const home = HOME_OF_ADJ[role];
+    const order = [home, DIAG_CCW[home], DIAG_CW[home], DIAG_OPP[home]];
+    for(const p of order){
+      if(need[p]>0){ assign[role]=p; need[p]-=1; return; }
+    }
+  });
+  return assign;
+}
+function drawTowerPillars(angle, r, need, occupied){
+  // 塔の円 + 必要人数分の柱(小さい印)を描く
+  const p=polar(angle,r);
+  const g=svgEl('g',{class:'towerMark'});
+  g.appendChild(svgEl('circle',{cx:p.x,cy:p.y,r:28,fill:'#2a1f45',stroke:'#b98bff','stroke-width':2,opacity:0.9}));
+  for(let i=0;i<need;i++){
+    const a = (i/need)*2*Math.PI - Math.PI/2;
+    const px = p.x + 17*Math.cos(a), py = p.y + 17*Math.sin(a);
+    g.appendChild(svgEl('circle',{cx:px,cy:py,r:3.6,fill: i<occupied? '#dcc3ff':'#5c4a80'}));
+  }
+  const t=svgEl('text',{x:p.x,y:p.y-34,fill:'#dcc3ff','font-size':10,'text-anchor':'middle'});
+  t.textContent=need+'人';
+  g.appendChild(t);
+  svg.insertBefore(g, svg.querySelector('g')?svg.querySelectorAll('g')[0]:null);
+  return g;
+}
+
 // ---------- main sequence ----------
 async function startRun(){
   score=0; total=0; setScore();
@@ -767,6 +838,109 @@ async function startRun(){
 
   setMsg('これが最終配置です。確認できたらボタンを押してください', 'good');
   document.getElementById('phaseLabel').textContent='最終配置の確認';
+  await waitForResultButton();
+
+  // ---- Phase 8: 4塔散開(ペア基本位置へ移動) ----
+  document.getElementById('phaseLabel').textContent='フェーズ8: 4塔散開';
+  setMsg('ダークドラゴンダイブ準備…斜め4方向にペアで散開(固定役は動かず、調整役が後で調整)');
+  await wait(BEAT_MS*0.8);
+  clearTowers();
+  const myPos = Object.keys(PAIR_OF_POS).find(p=> PAIR_OF_POS[p].fixed===selectedRole || PAIR_OF_POS[p].adj===selectedRole);
+  const pairChoices = DIAG_POS.map(p=>({id:p, angle:DIAG_ANGLE[p], r:R_OUT, label:DIAG_LABEL[p]}));
+  const pairExplain = `${selectedRole}のペア基本位置は【${DIAG_LABEL[myPos]}】(${PAIR_OF_POS[myPos].fixed}固定役+${PAIR_OF_POS[myPos].adj}調整役)`;
+  await new Promise(resolve=>{
+    askChoice('4塔散開：自分のペア基本位置はどこ？', pairChoices, myPos, timeLimitMs, ()=>resolve(), pairExplain);
+  });
+  clearTimer();
+  Object.keys(ROLES).forEach(r=>{
+    const p = Object.keys(PAIR_OF_POS).find(pp=> PAIR_OF_POS[pp].fixed===r || PAIR_OF_POS[pp].adj===r);
+    moveTokenAnimated(r, DIAG_ANGLE[p], R_OUT, MOVE_MS);
+  });
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+
+  // ---- Phase 9: 4塔踏み(人数調整) ----
+  document.getElementById('phaseLabel').textContent='フェーズ9: 4塔踏み';
+  setMsg('4塔が出現…柱の数が必要人数');
+  await wait(BEAT_MS*0.6);
+  const towerCounts = drawTowerCounts();
+  clearTowers();
+  DIAG_POS.forEach(p=> drawTowerPillars(DIAG_ANGLE[p], R_OUT, towerCounts[p], 0));
+  await wait(BEAT_MS);
+
+  const towerAssign = assignDiagTowers(towerCounts); // role -> position
+  const myTower = towerAssign[selectedRole];
+  const isFixedRole = PAIR_OF_POS[myPos].fixed===selectedRole;
+  const towerChoices = DIAG_POS.map(p=>({id:p, angle:DIAG_ANGLE[p], r:R_OUT, label:DIAG_LABEL[p]+'('+towerCounts[p]+'人)'}));
+  const towerExplain = isFixedRole
+    ? `固定役(${selectedRole})は動かず、自ペアの塔【${DIAG_LABEL[myTower]}】を踏む`
+    : `4塔は柱の数=必要人数。固定役(H1/H2/D3/D4)は動かず、調整役(MT/ST/D1/D2)がMT>ST>D1>D2の優先度で 自枠>左>右>対角 に調整。あなたは【${DIAG_LABEL[myTower]}】`;
+  await new Promise(resolve=>{
+    askChoice(isFixedRole? '4塔踏み：あなたは動かず自分の塔を踏む' : '4塔踏み：どの塔を踏む？',
+      towerChoices, myTower, timeLimitMs, ()=>resolve(), towerExplain);
+  });
+  clearTimer();
+  Object.keys(towerAssign).forEach(r=> moveTokenAnimated(r, DIAG_ANGLE[towerAssign[r]], R_OUT, MOVE_MS));
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+  // 内部検証: 各塔の必要人数と実際に乗った人数が一致すること
+  clearTowers();
+  DIAG_POS.forEach(p=>{
+    const occ = Object.values(towerAssign).filter(pp=>pp===p).length;
+    drawTowerPillars(DIAG_ANGLE[p], R_OUT, towerCounts[p], occ);
+    if(occ!==towerCounts[p]) console.error('4塔割り当て検証エラー', p, occ, towerCounts[p]);
+  });
+  await wait(BEAT_MS*0.8);
+  clearTowers();
+
+  // ---- Phase 10: ソウルテザー ----
+  document.getElementById('phaseLabel').textContent='フェーズ10: ソウルテザー';
+  setMsg('ボスと分身から線が伸びる…MT=分身線(無敵)、ST=ボス線(激減)、他は南集合');
+  const cloneDir = pick(DIAG_POS);
+  await wait(BEAT_MS*0.6);
+  const cloneP = polar(DIAG_ANGLE[cloneDir], R_OUT);
+  const tetherG = svgEl('g',{class:'towerMark'});
+  tetherG.appendChild(svgEl('circle',{cx:cloneP.x,cy:cloneP.y,r:13,fill:'#3a2233',stroke:'#ff9dc7','stroke-width':2}));
+  const cloneT=svgEl('text',{x:cloneP.x,y:cloneP.y+4,fill:'#ff9dc7','font-size':10,'text-anchor':'middle'});
+  cloneT.textContent='分身';
+  tetherG.appendChild(cloneT);
+  tetherG.appendChild(svgEl('line',{x1:0,y1:0,x2:cloneP.x,y2:cloneP.y,stroke:'#ff9dc7','stroke-width':2,'stroke-dasharray':'5,4'}));
+  const southP = polar(180, R_MID);
+  tetherG.appendChild(svgEl('line',{x1:0,y1:0,x2:southP.x,y2:southP.y,stroke:'#5fb3ff','stroke-width':2,'stroke-dasharray':'5,4'}));
+  svg.insertBefore(tetherG, svg.querySelector('g')?svg.querySelectorAll('g')[0]:null);
+  await wait(BEAT_MS);
+
+  const tetherChoices = [
+    {id:'clone', angle:DIAG_ANGLE[cloneDir], r:R_OUT*0.72, label:'分身の近く'},
+    {id:'boss', angle:0, r:35, label:'ボス直下'},
+    {id:'south', angle:180, r:R_MID, label:'南に集合'},
+  ];
+  let myTetherAnswer;
+  let tetherExplain;
+  if(selectedRole==='MT'){ myTetherAnswer='clone'; tetherExplain='MTは分身の線(無敵受け)なので分身の近くへ'; }
+  else if(selectedRole==='ST'){ myTetherAnswer='boss'; tetherExplain='STはボスの線(激減受け)なのでボス直下へ'; }
+  else { myTetherAnswer='south'; tetherExplain='MT/ST以外は南に集合して待機'; }
+  await new Promise(resolve=>{
+    askChoice('ソウルテザー：あなたの立ち位置は？', tetherChoices, myTetherAnswer, timeLimitMs, ()=>resolve(), tetherExplain);
+  });
+  clearTimer();
+  Object.keys(ROLES).forEach(r=>{
+    if(r==='MT') moveTokenAnimated(r, DIAG_ANGLE[cloneDir], R_OUT*0.72, MOVE_MS);
+    else if(r==='ST') moveTokenAnimated(r, 0, 35, MOVE_MS);
+    else moveTokenAnimated(r, 180, R_MID, MOVE_MS);
+  });
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+
+  // 着弾演出
+  document.getElementById('phaseLabel').textContent='ソウルテザー着弾';
+  setMsg('分身線(無敵)・ボス線(激減)が着弾…');
+  await wait(BEAT_MS*0.8);
+  tetherG.remove();
+  await wait(BEAT_MS*0.6);
+
+  setMsg('お疲れ様でした。結果を見るには続けてください', 'good');
+  document.getElementById('phaseLabel').textContent='4塔+ソウルテザー完了';
   await waitForResultButton();
 
   // result
