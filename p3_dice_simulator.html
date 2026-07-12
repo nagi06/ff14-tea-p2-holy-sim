@@ -27,7 +27,7 @@
     - 3番の塔(西/南/東) → 北西の2番→西、北東の2番→東、頭割りに行っていた1番→真ん中(南)。
   ・塔着弾後に竜騎士の分身が出現し最も近い1名へ直線攻撃 → 踏んだ本人が「塔の外周側」に立って外に誘導。
   ・並行してボスが 牙尾の連旋(頭割り→足元範囲→円範囲) or 尾牙の連旋(頭割り→円範囲→足元範囲) を2回詠唱(各回独立抽選)。
-    頭割り1回目=2番+3番の5人 / 2回目=1番+2番の5人。
+    頭割り1回目=2番+3番の5人 / 2回目=1番+2番の5人。頭割り位置はボス正面Aマーカー側のタゲサ淵(必ずタゲサの外)。
     避け方: 牙尾=外→内、尾牙=内→外。
   ・真ん中担当の1番が3番塔へ向かうルート: 尾牙=ボス下を中央突破 / 牙尾=円周沿い。
   簡略化した点:
@@ -152,7 +152,7 @@
           <b>牙尾/尾牙の連旋(2回・各回独立抽選)</b>：ボス正面の1名に頭割り→<br>
           ・牙尾=足元範囲→円範囲(避け:<b>外→内</b>) ・尾牙=円範囲→足元範囲(避け:<b>内→外</b>)。<br>
           目安はボスの<b>ターゲットサークル</b>: 内=<b>ボスの足元</b>／外=<b>ターゲットサークル際</b>(大げさに動く余裕はない)。<br>
-          頭割り1回目=<b>2番+3番の5人</b>／2回目=<b>1番+2番の5人</b>。<br>
+          頭割り1回目=<b>2番+3番の5人</b>／2回目=<b>1番+2番の5人</b>。頭割り位置は<b>ボス正面Aマーカー側のタゲサ淵(タゲサを踏まない=必ず外側)</b>。<br>
           <b>時系列</b>：<br>
           ①1番が西/南/東に散開して塔設置(2番3番はボス正面で頭割り1) → ②連旋1回目を避けつつ<b>3番が1番の塔を踏む</b>(自分が後で塔を出すスロットと同じ場所)＋直線誘導。並行して<b>2番は北へ移動して塔設置</b>(左=4-A間/右=A-1間、内周から2つ目の円) → ③2番の塔を<b>西/東にいた1番</b>が踏む(西→左塔/東→右塔)＋直線誘導→すぐ頭割り2に合流。中間(南)の1番は踏まずに頭割り2へ。2番も設置後すぐ頭割り2へ → ④連旋2回目 → ⑤<b>3番がその場で塔設置</b>(ミックスは向き注意) → ⑥3番の塔を<b>2番(左右)＋頭割りにいた1番(真ん中)</b>が踏む＋直線誘導。真ん中の1番のルートは<b>尾牙=ボス下を中央突破／牙尾=円周沿い</b>。<br>
           <b>4塔(ダークドラゴンダイブ)</b>：斜め4方向にペアで散開。固定役(H1/H2/D3/D4)は動かず、調整役(MT/ST/D1/D2)がMT&gt;ST&gt;D1&gt;D2の優先度で 自枠&gt;左&gt;右&gt;対角 の順に調整。塔の柱の数=必要人数(1〜4・合計8)。<br>
@@ -222,6 +222,8 @@ const MARK_ANGLE = {}; MARKERS.forEach(m=>MARK_ANGLE[m.id]=m.angle);
 const MARKER_COLORS = {A:'#ff5c5c','1':'#ff5c5c', B:'#ffd24d','2':'#ffd24d', C:'#4da6ff','3':'#4da6ff', D:'#c07aff','4':'#c07aff'};
 const R_OUT=170, R_MID=132, R_MARK=196;
 const R_TARGET=122; // ボス中心のターゲットサークル(牙尾/尾牙の目安)。1番/3番の塔(R_MID=132)がタゲサの淵に出るイメージ
+const R_STACK=R_TARGET+18; // 頭割り位置: ボス正面Aマーカー側のタゲサ淵(タゲサを踏まない=必ず外側)
+const R_WAIT=165; // 塔を出し終えた人のA側待機位置(頭割りよりさらに外)
 const MOVE_MS=1000;
 const BEAT_MS=1400;
 
@@ -451,7 +453,7 @@ function drawCloneLine(angle, r){
 function clearClones(){ svg.querySelectorAll('.cloneMark').forEach(el=>el.remove()); }
 // 頭割りマーク(ボス正面=北)
 function drawStackMark(){
-  const p=polar(0, 60);
+  const p=polar(0, R_STACK);
   const g=svgEl('g',{class:'stackMark'});
   g.appendChild(svgEl('circle',{cx:p.x,cy:p.y,r:26,fill:'none',stroke:'#ffcc4d','stroke-width':2,'stroke-dasharray':'5,4'}));
   const t=svgEl('text',{x:p.x,y:p.y-32,fill:'#ffcc4d','font-size':10,'text-anchor':'middle'});
@@ -464,7 +466,7 @@ function clearStackMark(){ svg.querySelectorAll('.stackMark').forEach(el=>el.rem
 // ルートヒント(確認モード用): 中央突破 or 円周沿い
 function drawRouteHint(route){
   const g=svgEl('g',{class:'routeHint'});
-  const start=polar(0,60), end=polar(180,R_MID);
+  const start=polar(0,R_STACK), end=polar(180,R_MID);
   if(route==='center'){
     g.appendChild(svgEl('path',{d:`M ${start.x} ${start.y} L 0 0 L ${end.x} ${end.y}`, fill:'none', stroke:'#3ddc84','stroke-width':3,'stroke-dasharray':'7,5',opacity:0.9}));
   } else {
@@ -712,10 +714,10 @@ async function dodgeAnim(roles, firstSide){
   await wait(MOVE_MS*0.6+300);
 }
 // 仕事が終わった人はAマーカー側(ボス正面)へ集合
-function gatherNorth(roles, ms){
+function gatherNorth(roles, ms, rad){
   roles.forEach((r,i)=>{
-    const off=(i-(roles.length-1)/2)*10;
-    moveTokenAnimated(r, off, 60, ms||MOVE_MS);
+    const off=(i-(roles.length-1)/2)*8;
+    moveTokenAnimated(r, off, rad||R_STACK, ms||MOVE_MS);
   });
 }
 // 直線誘導の2択(塔の外周側/中央側)
@@ -870,20 +872,16 @@ async function startRun(){
     }
   } else {
     const choices = [
-      {id:'north', angle:0, r:60, label:'ボス正面(頭割り)'},
+      {id:'north', angle:0, r:R_STACK, label:'ボス正面(頭割り)'},
       {id:'W', angle:WSE_ANGLE.W, r:R_MID, label:'西'},
       {id:'E', angle:WSE_ANGLE.E, r:R_MID, label:'東'},
     ];
     await ask(`${myNum}番のあなたは最初どこへ？`, choices, 'north',
-      '2番と3番は1回目の頭割り(牙尾/尾牙の連旋)を受けるため、ボス正面(北)に集合');
+      '2番と3番は1回目の頭割り(牙尾/尾牙の連旋)を受けるため、ボス正面Aマーカー側のタゲサ淵(タゲサの外)に集合');
   }
   // 全員移動
   group1.forEach(r=> moveTokenAnimated(r, WSE_ANGLE[slot1[r]], R_MID, MOVE_MS));
-  group2.concat(group3).forEach((r,idx)=>{
-    const others=group2.concat(group3);
-    const offset=(others.indexOf(r)-(others.length-1)/2)*10;
-    moveTokenAnimated(r, offset, 60, MOVE_MS);
-  });
+  gatherNorth(group2.concat(group3), MOVE_MS);
   applySeparation(MOVE_MS);
   // ミックスなら1番の矢印持ちに向き矢印を表示
   await wait(MOVE_MS+200);
@@ -909,7 +907,7 @@ async function startRun(){
     const mySlot1 = slot1[selectedRole];
     const choices=[
       {id:'stay', angle:WSE_ANGLE[mySlot1], r:R_MID, label:'その場で待つ'},
-      {id:'north', angle:0, r:100, label:'ボス正面(A側)へ'},
+      {id:'north', angle:0, r:R_WAIT, label:'ボス正面(A側)へ'},
     ];
     await ask('塔を出したあなたは？', choices, 'north',
       '塔の位置にとどまると自分の塔(踏めない塔)を踏んでしまう。塔を出す仕事は終わりなので、ボス正面(A側)へ離れて2番の塔を待つ');
@@ -917,7 +915,7 @@ async function startRun(){
     setMsg('1番は塔を出す仕事が終わったので、その場を離れてボス正面(A側)へ…');
     await wait(BEAT_MS);
   }
-  group1.forEach((r,i)=> moveTokenAnimated(r, (i-(group1.length-1)/2)*14, 100, MOVE_MS));
+  group1.forEach((r,i)=> moveTokenAnimated(r, (i-(group1.length-1)/2)*10, R_WAIT, MOVE_MS));
   applySeparation(MOVE_MS);
   await wait(MOVE_MS+200);
   setMsg('頭割り着弾！(2番+3番の5人受け) 続けて範囲攻撃…');
@@ -954,7 +952,7 @@ async function startRun(){
   }
   group3.forEach(r=> moveTokenAnimated(r, WSE_ANGLE[slot3[r]], R_MID, MOVE_MS));
   group2.forEach(r=> moveTokenAnimated(r, NWNE_ANGLE[north2[r]], R2, MOVE_MS));
-  group1.forEach((r,i)=> moveTokenAnimated(r, (i-(group1.length-1)/2)*14, 100, MOVE_MS)); // 1番はA側待機に戻る
+  group1.forEach((r,i)=> moveTokenAnimated(r, (i-(group1.length-1)/2)*10, R_WAIT, MOVE_MS)); // 1番はA側待機に戻る
   applySeparation(MOVE_MS);
   await wait(MOVE_MS+200);
   if(patternUsed==='mixed'){
@@ -994,7 +992,7 @@ async function startRun(){
   if(myNum===1){
     if(selectedRole===g1South){
       const choices = [
-        {id:'north', angle:0, r:60, label:'頭割りへ合流'},
+        {id:'north', angle:0, r:R_STACK, label:'頭割りへ合流'},
         {id:'NW', angle:NWNE_ANGLE.NW, r:R2, label:'北西塔'},
         {id:'NE', angle:NWNE_ANGLE.NE, r:R2, label:'北東塔'},
       ];
@@ -1015,7 +1013,7 @@ async function startRun(){
   }
   moveTokenAnimated(g1West, NWNE_ANGLE.NW, R2, MOVE_MS);
   moveTokenAnimated(g1East, NWNE_ANGLE.NE, R2, MOVE_MS);
-  moveTokenAnimated(g1South, -6, 60, MOVE_MS);
+  moveTokenAnimated(g1South, -6, R_STACK, MOVE_MS);
   applySeparation(MOVE_MS);
   await wait(MOVE_MS+300);
 
@@ -1037,12 +1035,8 @@ async function startRun(){
   await wait(MOVE_MS+200);
   setMsg('直線発射！1番と2番は頭割りへ集合(5人受け)…');
   clearClones();
-  // 1番全員+2番が頭割り位置へ
-  group1.concat(group2).forEach((r,idx)=>{
-    const all=group1.concat(group2);
-    const offset=(all.indexOf(r)-(all.length-1)/2)*10;
-    moveTokenAnimated(r, offset, 60, MOVE_MS);
-  });
+  // 1番全員+2番が頭割り位置(タゲサ外・A側の淵)へ
+  gatherNorth(group1.concat(group2), MOVE_MS);
   applySeparation(MOVE_MS);
   await wait(MOVE_MS+300);
   setMsg('頭割り着弾！(1番+2番の5人受け) 続けて範囲攻撃…');
@@ -1088,7 +1082,7 @@ async function startRun(){
     const mySlot3 = slot3[selectedRole];
     const choices=[
       {id:'stay', angle:WSE_ANGLE[mySlot3], r:R_MID, label:'その場で待つ'},
-      {id:'north', angle:0, r:100, label:'ボス正面(A側)へ'},
+      {id:'north', angle:0, r:R_WAIT, label:'ボス正面(A側)へ'},
     ];
     await ask('塔を出したあなたは？', choices, 'north',
       '塔の位置にとどまると自分の塔(踏めない塔)を踏んでしまう。塔を出す仕事は終わりなので、ボス正面(A側)へ離れる');
