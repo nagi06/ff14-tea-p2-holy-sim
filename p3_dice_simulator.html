@@ -16,7 +16,11 @@
     全員HJ時は優先度で西/南/東。2番の塔位置=向かって左が4-A間・右がA-1間、内周から2つ目の円(R_MID)上。
   ・連旋の避けは 内→外 or 外→内 の連続移動。内=ボスの足元/外=ターゲットサークル際(盤面に可視化、表示は多少オーバー)。
     仕事が終わった人はAマーカー側(ボス正面)に集合する。
+  ・塔を出したらその場を離れる(残ると自分の塔=踏めない塔を踏む)。1番は塔①設置後すぐA側で待機、
+    2番は塔②出現と同時に頭割りへ、3番は塔③出現後すぐA側へ。
   ・塔は数字順(1→2→3)に時間差で出現。自分の塔は踏めない(耐性低下)ので別の数字が踏む。
+  ・塔を出したらその場を離れる(残ると踏めない塔を踏む)。1番は塔①後A側待機→2番塔担当or頭割り、
+    2番は塔②出現と同時に頭割りへ、3番は塔③出現後すぐA側へ。
   ・塔踏み担当(モデル化した取り決め):
     - 1番の塔(西/南/東) → 3番が「自分が後で塔を出すのと同じスロット」を踏む。
     - 2番の塔(北西/北東) → 初期散開で西にいた1番→北西、東にいた1番→北東。中間(南)の1番は踏まず頭割り2に合流。
@@ -136,6 +140,7 @@
           ・ミックス → 1番/3番の各3人に イルーシブ×1・スパイン×1・HJ×1、2番の2人に イルーシブ×1・スパイン×1。<br>
           <b>ダイブの意味＝塔が出る位置</b>：スパイン=前方(→<b>ボスを向く</b>)／イルーシブ=後方(→<b>ボスに背を向ける</b>)／ハイジャンプ=真上(向き自由)。<br>
           <b>位置(ミックス)</b>：イルーシブ=<b>マーカーD側(西)</b>固定、スパイン=<b>マーカーB側(東)</b>固定、ハイジャンプ=その中間(南)。<br>
+          <b>塔を出したら離れる</b>：塔の位置にとどまると自分の塔(踏めない塔)を踏んでしまう。塔を出したら仕事は終わり、<b>すぐその場を離れてボス正面(A側)へ</b>(1番=A側で2番の塔を待つ/2番=頭割りへ/3番=A側へ)。<br>
           <b>竜騎士の分身</b>：塔着弾後に出現し、最も近い1名へ直線攻撃を詠唱。<b>塔を踏んだ本人が「塔の外周側」に立って直線を外に誘導</b>する(味方に当てない)。<br>
           <b>牙尾/尾牙の連旋(2回・各回独立抽選)</b>：ボス正面の1名に頭割り→<br>
           ・牙尾=足元範囲→円範囲(避け:<b>外→内</b>) ・尾牙=円範囲→足元範囲(避け:<b>内→外</b>)。<br>
@@ -884,14 +889,30 @@ async function startRun(){
   clearTowers();
   ['W','S','E'].forEach(s=> drawTower(WSE_ANGLE[s], R_MID, '塔①'));
   Object.keys(tokens).forEach(r=> drawFacingArrow(r, null)); // 着弾したので矢印は消す
-  await wait(BEAT_MS);
+  await wait(BEAT_MS*0.6);
+  // 塔を出したらその場を離れる(残ると自分の塔=踏めない塔を踏んでしまう)
+  if(myNum===1){
+    const mySlot1 = slot1[selectedRole];
+    const choices=[
+      {id:'stay', angle:WSE_ANGLE[mySlot1], r:R_MID, label:'その場で待つ'},
+      {id:'north', angle:0, r:100, label:'ボス正面(A側)へ'},
+    ];
+    await ask('塔を出したあなたは？', choices, 'north',
+      '塔の位置にとどまると自分の塔(踏めない塔)を踏んでしまう。塔を出す仕事は終わりなので、ボス正面(A側)へ離れて2番の塔を待つ');
+  } else {
+    setMsg('1番は塔を出す仕事が終わったので、その場を離れてボス正面(A側)へ…');
+    await wait(BEAT_MS);
+  }
+  group1.forEach((r,i)=> moveTokenAnimated(r, (i-(group1.length-1)/2)*14, 100, MOVE_MS));
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+200);
   setMsg('頭割り着弾！(2番+3番の5人受け) 続けて範囲攻撃…');
   await wait(BEAT_MS*0.7);
   const first1 = FIRST_SAFE[cast1];
   await askInOutP(`${CAST_JP[cast1]}: どう動く？(内→外/外→内)`, first1,
     `${CAST_JP[cast1]}は${CAST_DESC[cast1]}。${MOVE_JP[first1]}の連続移動で回避`);
   clearStackMark();
-  await dodgeAnim(group2.concat(group3), first1);
+  await dodgeAnim(PRIORITY.slice(), first1); // 全員(1番もA側で)内外を回避
 
   // ---- フェーズ3: 3番が1番の塔を踏む / 2番は北へ移動 ----
   document.getElementById('phaseLabel').textContent='フェーズ3: 塔踏み1(3番) / 2番北移動';
@@ -919,6 +940,7 @@ async function startRun(){
   }
   group3.forEach(r=> moveTokenAnimated(r, WSE_ANGLE[slot3[r]], R_MID, MOVE_MS));
   group2.forEach(r=> moveTokenAnimated(r, NWNE_ANGLE[north2[r]], R2, MOVE_MS));
+  group1.forEach((r,i)=> moveTokenAnimated(r, (i-(group1.length-1)/2)*14, 100, MOVE_MS)); // 1番はA側待機に戻る
   applySeparation(MOVE_MS);
   await wait(MOVE_MS+200);
   if(patternUsed==='mixed'){
@@ -946,7 +968,11 @@ async function startRun(){
   setMsg('直線発射！外周へ誘導成功。並行して2番のサイコロが着弾…');
   ['NW','NE'].forEach(s=> drawTower(NWNE_ANGLE[s], R2, '塔②'));
   group2.forEach(r=> drawFacingArrow(r, null));
-  await wait(BEAT_MS);
+  await wait(BEAT_MS*0.6);
+  setMsg('2番も塔を出したらすぐその場を離れて頭割りへ！(残ると自分の塔を踏んでしまう)');
+  gatherNorth(group2, MOVE_MS*0.7);
+  applySeparation(MOVE_MS*0.7);
+  await wait(MOVE_MS*0.7+300);
   clearClones();
 
   // ---- フェーズ5: 1番(西/東)が2番塔を踏む / 中間1番は頭割り2へ ----
@@ -1011,7 +1037,7 @@ async function startRun(){
   await askInOutP(`${CAST_JP[cast2]}: どう動く？(内→外/外→内)`, first2,
     `${CAST_JP[cast2]}は${CAST_DESC[cast2]}。${MOVE_JP[first2]}の連続移動で回避`);
   clearStackMark();
-  await dodgeAnim(group1.concat(group2), first2);
+  await dodgeAnim(PRIORITY.slice(), first2); // 全員回避(3番は担当位置へ戻る)
   gatherNorth(group1.concat(group2), MOVE_MS*0.6);
   applySeparation(MOVE_MS*0.6);
   await wait(MOVE_MS*0.6+200);
@@ -1042,7 +1068,23 @@ async function startRun(){
   setMsg('3番のサイコロが着弾…西・南・東に塔③が出現！');
   ['W','S','E'].forEach(s=> drawTower(WSE_ANGLE[s], R_MID, '塔③'));
   group3.forEach(r=> drawFacingArrow(r, null));
-  await wait(BEAT_MS);
+  await wait(BEAT_MS*0.6);
+  // 3番も塔を出したらその場を離れる
+  if(myNum===3){
+    const mySlot3 = slot3[selectedRole];
+    const choices=[
+      {id:'stay', angle:WSE_ANGLE[mySlot3], r:R_MID, label:'その場で待つ'},
+      {id:'north', angle:0, r:100, label:'ボス正面(A側)へ'},
+    ];
+    await ask('塔を出したあなたは？', choices, 'north',
+      '塔の位置にとどまると自分の塔(踏めない塔)を踏んでしまう。塔を出す仕事は終わりなので、ボス正面(A側)へ離れる');
+  } else {
+    setMsg('3番は塔を出す仕事が終わったので、その場を離れてボス正面(A側)へ…');
+    await wait(BEAT_MS);
+  }
+  gatherNorth(group3, MOVE_MS*0.7);
+  applySeparation(MOVE_MS*0.7);
+  await wait(MOVE_MS*0.7+300);
 
   // ---- フェーズ8: 塔踏み3(2番=左右 / 中間の1番=真ん中・ルート選択) ----
   document.getElementById('phaseLabel').textContent='フェーズ8: 塔踏み3';
@@ -1070,7 +1112,6 @@ async function startRun(){
     await wait(BEAT_MS*1.5);
   }
   Object.keys(stomp3).forEach(r=> moveTokenAnimated(r, WSE_ANGLE[stomp3[r]], R_MID, MOVE_MS));
-  gatherNorth(group3); // 3番は塔を出し終えたのでAマーカー側へ
   applySeparation(MOVE_MS);
   await wait(MOVE_MS+300);
 
