@@ -113,6 +113,13 @@
       <div class="seconds-hint">ミックス＝1番と3番に イルーシブ/スパイン/ハイジャンプ が1人ずつ、2番に イルーシブ/スパイン が1人ずつ付くパターン。</div>
     </div>
     <div class="panel">
+      <h2>練習範囲</h2>
+      <div class="speed-grid" id="scopeGrid">
+        <div class="speed-btn selected" data-scope="dice">サイコロのみ</div>
+        <div class="speed-btn" data-scope="full">通し(4塔+テザーまで)</div>
+      </div>
+    </div>
+    <div class="panel">
       <h2>モード</h2>
       <div class="speed-grid" id="modeGrid">
         <div class="speed-btn selected" data-mode="review">確認モード<br><span style="font-size:10px;color:var(--dim);">正解を見ながらじっくり覚える</span></div>
@@ -237,7 +244,7 @@ function svgEl(tag,attrs){
 }
 
 // ---------- setup screen ----------
-let selectedRole=null, timeLimitMs=30000, reviewMode=true, patternSetting='random';
+let selectedRole=null, timeLimitMs=30000, reviewMode=true, patternSetting='random', scopeSetting='dice';
 const roleGrid=document.getElementById('roleGrid');
 Object.keys(ROLES).forEach(id=>{
   const r=ROLES[id];
@@ -251,6 +258,13 @@ Object.keys(ROLES).forEach(id=>{
     document.getElementById('startBtn').disabled=false;
   };
   roleGrid.appendChild(btn);
+});
+document.querySelectorAll('#scopeGrid .speed-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#scopeGrid .speed-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    scopeSetting = btn.dataset.scope;
+  };
 });
 document.querySelectorAll('#patternGrid .speed-btn').forEach(btn=>{
   btn.onclick=()=>{
@@ -1142,6 +1156,7 @@ async function startRun(){
   document.getElementById('phaseLabel').textContent='サイコロ終了・配置確認';
   await waitForResultButton();
 
+  if(scopeSetting==='full'){
   // ---- フェーズ10: 4塔散開(ペア基本位置へ移動) ----
   document.getElementById('phaseLabel').textContent='フェーズ10: 4塔散開';
   setMsg('ダークドラゴンダイブ準備…斜め4方向にペアで散開(固定役は動かず、調整役が後で調整)');
@@ -1235,6 +1250,7 @@ async function startRun(){
   setMsg('お疲れ様でした。結果を見るには続けてください', 'good');
   document.getElementById('phaseLabel').textContent='4塔+ソウルテザー完了';
   await waitForResultButton();
+  } // scopeSetting==='full'
 
   // result
   document.getElementById('battleScreen').hidden=true;
