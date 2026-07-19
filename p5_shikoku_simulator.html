@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>絶竜詩戦争 P5 儀典トールダン「至天の陣:死刻」練習シミュレーター</title>
+<!--
+  2026-07-19 新規作成。こまぞう式改(ユーザー詳細指定)に基づきモデル化。
+
+  フィールドマーカー(恒久ルール): 時計回りに A(北)→1(北東)→B(東)→2(南東)→C(南)→3(南西)→D(西)→4(北西)。
+  色はゲーム準拠: A/1=赤, B/2=黄, C/3=青, D/4=紫。
+
+  ギミック仕様の要点(こまぞう式改・ユーザー確定分):
+  ・ゲリック(斧持ち聖騎士)がA/B/C/Dいずれかにランダム出現→ゲリックを北とみなし全員が横一列に整列。
+    並びは「ゲリック基準の西→東」で MT ST D1 D2 D3 D4 H1 H2 固定。
+    実装: 盤面はゲリック基準(北=ゲリック)にあらかじめ正規化して描画し、実際にどのマーカーが北になったかを
+    バナーに常時表示する方式を採用(p3/p4と同じく実装しやすい方を選択)。
+  ・死の宣告(ランダム4名)/無職(残り4名)。各グループ内で整列順(西から)に1〜4の番号を付与。
+  ・出題1: 自分のグループ番号に対応する散開スロットをタップ(8択)。
+    無1=西外周／無4=東外周／無2=北西／無3=北東(北側マーカーに少し被る程度)、
+    宣告1=西内側(東西ドーナツ模様)／宣告4=東内側／宣告2=南西寄り／宣告3=南東寄り(南側マーカーに少し被る程度)。
+  ・出題2: 百雷+ヘヴィインパクトの中央入りタイミング2択。
+    北2名(無2/無3)+内周宣告2名(宣告1/宣告4)=「百雷と同時」、残り4名(無1/無4/宣告2/宣告3)=「ヘヴィ3発目を見てから」。
+  ・プレステ前整列(中央)は自動移動+解説のみ(判断不要)。
+  ・プレステマーカー抽選: 宣告1/宣告4=必ず○。宣告2/宣告3=▽と□を1つずつランダム。宣告に×はつかない。
+    無職=×2/▽1/□1をランダム付与。最終形(中央octagon): 北=×(無職)/北西=宣告2/北東=宣告3/西=宣告1(○)/
+    東=宣告4(○)/南=×(無職)/南西・南東=無職の▽□(宣告の同じ図形の対角へ)。
+  ・出題3: 自分のマーカーに応じた行き先タップ。
+    無職×: 整列(西→東)で西側の人=北、東側の人=南。
+    無職▽/□: 宣告側の同じ図形の対角(北西⇔南東,北東⇔南西)へ。
+    宣告1/4(○): 中央へ寄る。宣告2/3(▽□): その場固定(動かない)。
+  ・出題4: 視線2本(邪竜の邪眼+トールダン、互いに135°または180°離れて外周出現)。
+    判定モデルはp2_gaze_simulator.htmlと同じ「正面±90°未満に入るとアウト、真横90°ちょうどはセーフ」。
+    タップは8方向(45度刻み)の中から安全な向きを選ぶ簡略モデル(実戦は自由方位だが選択肢学習用に離散化)。
+  ・出題5(宣告のみ): ノックバック後に踏むサルヴェーションウィング(無職の百雷跡=西外/北西/北東/東外の4か所)。
+    宣告1→西外／宣告2→北西／宣告3→北東／宣告4→東外(最寄り固定・ユーザー確定)。無職は判断なし(自動スキップ)。
+  ・ホーリーメテオ(聖紋破壊)はシミュに含めない(カンペにのみ一言記載)。
+
+  独自判断(仕様が実装レベルまで指定していない箇所。カンペ/報告にも明記):
+  ①盤面はゲリック北固定で描画し、元マーカー表示だけ回転させる(逆に回転させる実装も可だが軽量な前者を採用)。
+  ②出題1の散開半径は 無1/無4=最外周・無2/3と宣告2/3=マーカー環・宣告1/4=内周ドーナツ、の3段階で数値化。
+  ③出題3のタップ対象は「最終octagon8方向＋『中央へ』」に統一し、○持ちの正解を「中央へ」、
+    ▽□持ち(宣告2/3)の正解を「その場(現在地)」として同一UIで出題できるようにした。
+  ④視線は45度刻み8方向からの離散選択式(実戦は連続角度)。安全判定ロジックはp2と同一の正面±90°モデル。
+  ⑤無職×2名の南北割当は「無職内の西→東番号(1..4)のうち×を持つ2名を比較し、番号が小さい(西寄り)方=北」とした。
+-->
+<style>
+  :root{
+    --bg:#0f1420; --panel:#182036; --panel2:#1f2a45; --line:#3a4a70;
+    --accent:#5fb3ff; --good:#3ddc84; --bad:#ff5c6c; --warn:#ffcc4d; --text:#e8edf7; --dim:#8ea0c4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;}
+  #app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:10px 10px 30px;}
+  h1{font-size:16px;text-align:center;margin:8px 0 4px;color:var(--accent);}
+  .sub{text-align:center;color:var(--dim);font-size:11px;margin-bottom:10px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .panel h2{font-size:13px;margin:0 0 8px;color:var(--accent);}
+  .role-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+  .role-btn{padding:10px 0;border-radius:8px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;font-weight:bold;text-align:center;cursor:pointer;}
+  .role-btn.tank{border-color:#3a6bd6;} .role-btn.healer{border-color:#2fae66;} .role-btn.dps{border-color:#d67a3a;}
+  .role-btn.selected{outline:3px solid var(--accent);background:#243156;}
+  .speed-grid{display:flex;gap:6px;}
+  .speed-btn{flex:1;padding:8px 0;border-radius:8px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-size:12px;text-align:center;cursor:pointer;}
+  .speed-btn.selected{outline:3px solid var(--accent);background:#243156;}
+  .seconds-row{display:flex;align-items:center;gap:10px;}
+  .seconds-row input[type=range]{flex:1;accent-color:var(--accent);}
+  .seconds-row input[type=number]{width:64px;padding:8px;border-radius:8px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;text-align:center;}
+  .seconds-hint{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.5;}
+  #startBtn{width:100%;padding:14px;font-size:15px;font-weight:bold;border:none;border-radius:10px;background:var(--accent);color:#08111f;cursor:pointer;margin-top:4px;}
+  #startBtn:disabled{opacity:0.4;}
+  details{margin-top:2px;}
+  summary{cursor:pointer;color:var(--dim);font-size:12px;}
+  .rules{font-size:12px;line-height:1.7;color:var(--text);margin-top:8px;}
+  .rules b{color:var(--accent);}
+  .src{font-size:10px;color:var(--dim);margin-top:6px;}
+  #hud{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:var(--dim);}
+  #roleTag{font-weight:bold;color:var(--accent);}
+  #infoBanner{text-align:center;margin:4px 0 8px;padding:10px;border-radius:10px;background:var(--panel2);border:2px solid var(--accent);font-size:12px;line-height:1.6;}
+  #infoBanner b{color:var(--warn);}
+  #phaseLabel{font-size:14px;font-weight:bold;text-align:center;margin:2px 0 6px;min-height:20px;}
+  #timerWrap{height:8px;background:#0a0e18;border-radius:4px;overflow:hidden;margin-bottom:8px;border:1px solid var(--line);}
+  #timerBar{height:100%;background:var(--accent);width:100%;}
+  #arenaWrap{position:relative;width:100%;aspect-ratio:1/1;max-width:460px;margin:0 auto;}
+  svg#arena{width:100%;height:100%;display:block;touch-action:manipulation;}
+  .slot{cursor:pointer;}
+  .slot:active circle{filter:brightness(1.3);}
+  #msg{min-height:34px;text-align:center;font-size:13px;font-weight:bold;margin-top:6px;}
+  #log{font-size:11px;color:var(--dim);max-height:70px;overflow-y:auto;margin-top:6px;padding:6px;background:#0a0e18;border-radius:6px;border:1px solid var(--line);}
+  #resultScreen .score{font-size:32px;text-align:center;font-weight:bold;color:var(--accent);margin:6px 0;}
+  #resultScreen .verdict{text-align:center;font-size:14px;margin-bottom:10px;}
+  button.secondary{width:100%;padding:12px;border-radius:10px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;cursor:pointer;margin-top:6px;}
+  hr.div{border:none;border-top:1px solid var(--line);margin:10px 0;}
+  [hidden]{display:none!important;}
+  .reviewHi{transform-box:fill-box;transform-origin:center;animation:reviewPulse 1.1s ease-in-out infinite;}
+  @keyframes reviewPulse{0%{transform:scale(1);}50%{transform:scale(1.18);}100%{transform:scale(1);}}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>絶竜詩戦争 P5 儀典トールダン「至天の陣:死刻」練習シミュレーター</h1>
+  <div class="sub">死の宣告/無職の散開・中央集合タイミング・プレステの行き先・視線・サルヴェーションウィングの判断練習</div>
+
+  <!-- SETUP -->
+  <div id="setupScreen">
+    <div class="panel">
+      <h2>役割を選択</h2>
+      <div class="role-grid" id="roleGrid"></div>
+    </div>
+    <div class="panel">
+      <h2>モード</h2>
+      <div class="speed-grid" id="modeGrid">
+        <div class="speed-btn selected" data-mode="review">確認モード<br><span style="font-size:10px;color:var(--dim);">正解を見ながらじっくり覚える</span></div>
+        <div class="speed-btn" data-mode="practice">練習モード<br><span style="font-size:10px;color:var(--dim);">制限時間内に自分で判断</span></div>
+      </div>
+    </div>
+    <div class="panel" id="speedPanel">
+      <h2 id="speedPanelTitle">確認モードの待ち時間(秒)</h2>
+      <div class="seconds-row">
+        <input type="range" id="secondsSlider" min="3" max="60" step="1" value="30">
+        <input type="number" id="secondsInput" min="3" max="120" step="1" value="30">
+        <span>秒</span>
+      </div>
+      <div class="seconds-hint" id="secondsHint">緑をタップすれば即座に次へ進めます。この秒数は「タップしなかった場合」に自動で次へ進むまでの待ち時間です。</div>
+    </div>
+    <button id="startBtn">確認スタート</button>
+
+    <div class="panel" style="margin-top:10px;">
+      <details>
+        <summary>カンペ(ルール概要)を見る</summary>
+        <div class="rules">
+          <b>整列</b>: ゲリック(斧持ち聖騎士)がA/B/C/Dのいずれかにランダム出現→<b>ゲリックを北</b>とみなし横一列に整列。
+          並びは西→東で <b>MT ST D1 D2 D3 D4 H1 H2</b> 固定。<br>
+          <b>死の宣告/無職</b>: ランダム4名が死の宣告、残り4名が無職。各グループ内で整列順(西から)に1〜4番。<br>
+          <b>散開(出題1)</b>: 無1=西外周／無4=東外周／無2=北西・無3=北東(北側マーカーに少し被る程度)、
+          宣告1=西内側(東西ドーナツ)／宣告4=東内側／宣告2=南西寄り・宣告3=南東寄り(南側マーカーに少し被る程度)。<br>
+          <b>中央入りタイミング(出題2)</b>: 無2/無3(北)＋宣告1/宣告4(内周)は<b>百雷着弾と同時</b>に中央へ。
+          無1/無4/宣告2/宣告3は<b>ヘヴィインパクト3発目を見てから</b>中央へ。<br>
+          <b>プレステ整列(中央)</b>: 宣告2/3が北寄り中央、宣告1=西・宣告4=東、無職は南側に西から1〜4で整列(判断不要)。<br>
+          <b>プレステマーカー(出題3)</b>: 宣告1/4=必ず○(丸)。宣告2/3=▽と□を1つずつランダム(宣告に×はつかない)。
+          無職=×2・▽1・□1をランダム付与。<br>
+          最終形(中央8方向): 北=×(無職)／北西=宣告2／北東=宣告3／西=宣告1(○)／東=宣告4(○)／南=×(無職)／
+          南西・南東=無職の▽□(宣告と同じ図形の<b>対角</b>: 北西⇔南東、北東⇔南西)。<br>
+          行き先: 無職×は<b>西側の人=北・東側の人=南</b>。無職▽/□は<b>宣告の同じ図形の対角</b>へ。
+          宣告1/4(○)は<b>中央へ寄る</b>。宣告2/3(▽□)は<b>その場固定</b>(動かない)。<br>
+          <b>視線(出題4)</b>: 邪竜の邪眼＋トールダンの2本(互いに135°か180°離れて外周出現)。
+          <b>正面±90°未満に入るとアウト</b>(真横90°ちょうどはセーフ)。<br>
+          <b>裏技</b>: 視線判定は正面90°なので「視線からマーカー1個半ずれた向き」で回避できる。
+          宣告組は飛び先が固定なので、配置後に外周90°を確認するだけでよい(無職より判断が軽い)。<br>
+          <b>ノックバック後(出題5・宣告のみ)</b>: 無職の百雷跡=サルヴェーションウィング(白円)を踏んでデバフ解除。
+          宣告1→西外／宣告2→北西／宣告3→北東／宣告4→東外(自分の飛び先の最寄り)。無職は踏まない(判断なし)。<br>
+          <b>後組の中央入り(補足)</b>: 無1/無4/宣告2/宣告3(後組)は百雷着弾の瞬間に動かず、<b>まず少し外(南)へずれてツイスターを回避</b>し、
+          <b>ヘヴィインパクト3発目を見てから</b>中央へ入る。先組(無2/無3/宣告1/宣告4)は従来どおり百雷と同時に中央へ。<br>
+          <b>判断のコツ</b>: <b>左4人は左から、右4人は右からの番号で数える</b>と自分の番号や隣の担当が素早く分かる。
+          <b>死の宣告持ちはデバフ+ハンマー状のエフェクトで視覚的に判別できる</b>ので、整列後は見た目でも自他の宣告/無職を確認できる。<br>
+          <div class="src">※ホーリーメテオ(聖紋破壊)はこのシムには含めていません。最後は破壊してからLBなどを使いましょう。</div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- BATTLE -->
+  <div id="battleScreen" hidden>
+    <div id="hud"><span>役割: <span id="roleTag"></span></span><span id="scoreTag">0/0</span></div>
+    <div id="infoBanner" id="infoBannerWrap">
+      <div id="infoText">-</div>
+    </div>
+    <div id="phaseLabel"></div>
+    <div id="timerWrap"><div id="timerBar"></div></div>
+    <div id="arenaWrap">
+      <svg id="arena" viewBox="-220 -220 440 440"></svg>
+    </div>
+    <div id="msg"></div>
+    <button id="viewResultBtn" class="secondary" hidden>最終配置を確認した → 結果を見る</button>
+    <div id="log"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="resultScreen" hidden>
+    <div class="panel">
+      <h2 style="text-align:center;">練習結果</h2>
+      <div class="score" id="finalScore">0/0</div>
+      <div class="verdict" id="finalVerdict"></div>
+      <button class="secondary" id="retryBtn">もう一度(抽選し直し)</button>
+      <button class="secondary" id="backBtn">役割選択に戻る</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROLES = {
+  MT:{label:'MT',cls:'tank',color:'#4da6ff'},
+  ST:{label:'ST',cls:'tank',color:'#1f6fd6'},
+  D1:{label:'D1',cls:'dps',color:'#ff9d4d'},
+  D2:{label:'D2',cls:'dps',color:'#ffcc4d'},
+  D3:{label:'D3',cls:'dps',color:'#ff6b6b'},
+  D4:{label:'D4',cls:'dps',color:'#c96bff'},
+  H1:{label:'H1',cls:'healer',color:'#3ddc84'},
+  H2:{label:'H2',cls:'healer',color:'#1fa25c'},
+};
+// 整列順(ゲリック基準・西→東)固定
+const ORDER = ['MT','ST','D1','D2','D3','D4','H1','H2'];
+
+// ゲリック北基準の8方向(0=北,以下時計回り45度刻み)
+const DIR = {N:0, NE:45, E:90, SE:135, S:180, SW:225, W:270, NW:315};
+// 元マーカー(実際の盤面): 時計回りに A(北)/1(北東)/B(東)/2(南東)/C(南)/3(南西)/D(西)/4(北西)
+const RAW_MARKERS = [
+  {id:'A', angle:0}, {id:'1', angle:45}, {id:'B', angle:90}, {id:'2', angle:135},
+  {id:'C', angle:180}, {id:'3', angle:225}, {id:'D', angle:270}, {id:'4', angle:315},
+];
+const MARKER_COLORS = {A:'#ff5c5c','1':'#ff5c5c', B:'#ffd24d','2':'#ffd24d', C:'#4da6ff','3':'#4da6ff', D:'#c07aff','4':'#c07aff'};
+const MOVE_MS = 900;
+const BEAT_MS = 1300;
+
+function polar(angleDeg, r){
+  const rad = angleDeg*Math.PI/180;
+  return {x: r*Math.sin(rad), y: -r*Math.cos(rad)};
+}
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function ns(){ return 'http://www.w3.org/2000/svg'; }
+function svgEl(tag, attrs){
+  const el = document.createElementNS(ns(), tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function angDiff(a,b){ let d=Math.abs(a-b)%360; return d>180?360-d:d; }
+
+// =====================================================================
+// 抽選ロジック(selfTestからもUIからも呼べるよう純粋関数として実装)
+// =====================================================================
+function drawScenario(){
+  // ゲリックが北になった元マーカー
+  const gerrickMarker = pick(['A','B','C','D']);
+
+  // 死の宣告4名/無職4名をランダム抽選
+  const shuffled = shuffle(ORDER);
+  const sengokuSet = new Set(shuffled.slice(0,4));
+  const group = {}; // role -> 'sengoku' | 'mushoku'
+  ORDER.forEach(r=> group[r] = sengokuSet.has(r) ? 'sengoku' : 'mushoku');
+
+  // 各グループ内で整列順(西から)に1..4番
+  const number = {};
+  ['sengoku','mushoku'].forEach(g=>{
+    const members = ORDER.filter(r=>group[r]===g);
+    members.forEach((r,i)=> number[r]=i+1);
+  });
+  const roleOfSengokuNum = {}, roleOfMushokuNum = {};
+  ORDER.forEach(r=>{
+    if(group[r]==='sengoku') roleOfSengokuNum[number[r]] = r;
+    else roleOfMushokuNum[number[r]] = r;
+  });
+
+  // 散開スロット(角度, 半径)
+  const SCATTER = {
+    mushoku: {1:{angle:DIR.W, r:200, label:'無1(西外周)'}, 2:{angle:DIR.NW, r:170, label:'無2(北西)'},
+               3:{angle:DIR.NE, r:170, label:'無3(北東)'}, 4:{angle:DIR.E, r:200, label:'無4(東外周)'}},
+    sengoku: {1:{angle:DIR.W, r:110, label:'宣告1(西内側)'}, 2:{angle:DIR.SW, r:170, label:'宣告2(南西寄り)'},
+               3:{angle:DIR.SE, r:170, label:'宣告3(南東寄り)'}, 4:{angle:DIR.E, r:110, label:'宣告4(東内側)'}},
+  };
+
+  // 中央入りタイミング: 無2/無3/宣告1/宣告4 = 百雷と同時(A) / 残り4名 = ヘヴィ3発目を見てから(B)
+  const timing = {}; // role -> 'A' | 'B'
+  ORDER.forEach(r=>{
+    const g = group[r], n = number[r];
+    if(g==='mushoku'){ timing[r] = (n===2||n===3) ? 'A' : 'B'; }
+    else{ timing[r] = (n===1||n===4) ? 'A' : 'B'; }
+  });
+
+  // プレステマーカー抽選
+  // 宣告1/4=○固定。宣告2/3=▽と□をランダムに1つずつ。
+  const [sh2, sh3] = shuffle(['▽','□']); // sengoku2, sengoku3 が持つ図形
+  const presteShape = {}; // role -> '○'|'▽'|'□'|'×'
+  presteShape[roleOfSengokuNum[1]] = '○';
+  presteShape[roleOfSengokuNum[4]] = '○';
+  presteShape[roleOfSengokuNum[2]] = sh2;
+  presteShape[roleOfSengokuNum[3]] = sh3;
+  // 無職: ×2/▽1/□1をランダム付与
+  const mushokuRoles = [1,2,3,4].map(n=>roleOfMushokuNum[n]);
+  const mushokuShuffled = shuffle(mushokuRoles);
+  const batsuRoles = mushokuShuffled.slice(0,2); // ×を持つ2人
+  const sankakuRole = mushokuShuffled[2];
+  const shikakuRole = mushokuShuffled[3];
+  presteShape[batsuRoles[0]] = '×';
+  presteShape[batsuRoles[1]] = '×';
+  presteShape[sankakuRole] = '▽';
+  presteShape[shikakuRole] = '□';
+
+  // 無職×の南北割当: 無職内番号(西→東)が小さい方(西寄り)=北、大きい方=南
+  const batsuNums = batsuRoles.map(r=>number[r]).sort((a,b)=>a-b);
+  const batsuDest = {}; // role -> 'N' | 'S'
+  batsuRoles.forEach(r=>{
+    batsuDest[r] = (number[r]===batsuNums[0]) ? 'N' : 'S';
+  });
+
+  // 無職▽/□の対角行き先: 宣告2(NW)/宣告3(NE)のうちどちらが同じ図形かを見て対角へ
+  const shapeAtNW = sh2, shapeAtNE = sh3; // 宣告2はNW、宣告3はNE(最終octagon固定)
+  function diagFor(shape){
+    if(shape===shapeAtNW) return 'SE'; // NWの対角
+    if(shape===shapeAtNE) return 'SW'; // NEの対角
+    return null; // 起きないはず
+  }
+  const mushokuDiagDest = {}; // role(▽or□持ち) -> 'SE'|'SW'
+  mushokuDiagDest[sankakuRole] = diagFor('▽');
+  mushokuDiagDest[shikakuRole] = diagFor('□');
+
+  // 最終行き先(出題3の正解): 'N','S','SE','SW'(無職) / 'center'(宣告1,4) / 'stay'(宣告2,3)
+  const finalDest = {};
+  ORDER.forEach(r=>{
+    const shape = presteShape[r];
+    if(group[r]==='mushoku'){
+      if(shape==='×') finalDest[r] = batsuDest[r];
+      else finalDest[r] = mushokuDiagDest[r];
+    } else {
+      finalDest[r] = (shape==='○') ? 'center' : 'stay';
+    }
+  });
+
+  // サルヴェーションウィング(宣告のみ): 宣告1→西外/2→北西/3→北東/4→東外
+  const WING_OF_SENGOKU_NUM = {1:'W', 2:'NW', 3:'NE', 4:'E'};
+  const wingDest = {};
+  [1,2,3,4].forEach(n=>{ wingDest[roleOfSengokuNum[n]] = WING_OF_SENGOKU_NUM[n]; });
+
+  // 視線: 8方向(45度刻み)から2本、互いに135°または180°離れる
+  const gazeA = pick([0,45,90,135,180,225,270,315]);
+  const gazeDiff = pick([135,180]);
+  const gazeSign = pick([1,-1]);
+  const gazeB = ((gazeA + gazeSign*gazeDiff) % 360 + 360) % 360;
+  // 安全な向き(45度刻み8方向のうち、両方の視線と角度差>=90のもの)
+  const safeDirs = [0,45,90,135,180,225,270,315].filter(d=>
+    angDiff(d,gazeA) >= 90 - 1e-9 && angDiff(d,gazeB) >= 90 - 1e-9
+  );
+
+  return {
+    gerrickMarker, group, number, roleOfSengokuNum, roleOfMushokuNum,
+    SCATTER, timing, presteShape, batsuRoles, sankakuRole, shikakuRole,
+    batsuDest, mushokuDiagDest, finalDest, wingDest,
+    gazeA, gazeB, gazeDiff, safeDirs,
+  };
+}
+
+// =====================================================================
+// 自己検証(ブラウザ/Node両対応)
+// =====================================================================
+function selfTest(n){
+  n = n || 4000;
+  let bad = 0;
+  const problems = [];
+  function fail(msg){ bad++; if(problems.length<20) problems.push(msg); }
+  for(let i=0;i<n;i++){
+    const R = drawScenario();
+    const sengokuRoles = ORDER.filter(r=>R.group[r]==='sengoku');
+    const mushokuRoles = ORDER.filter(r=>R.group[r]==='mushoku');
+    if(sengokuRoles.length!==4) fail('宣告が4人でない: '+sengokuRoles.length);
+    if(mushokuRoles.length!==4) fail('無職が4人でない: '+mushokuRoles.length);
+    // 番号一意性(西→東の並び順と整合)
+    [sengokuRoles, mushokuRoles].forEach(list=>{
+      const nums = list.map(r=>R.number[r]).sort((a,b)=>a-b);
+      if(JSON.stringify(nums)!==JSON.stringify([1,2,3,4])) fail('番号が1..4の一意割当でない: '+nums.join(','));
+      // 番号順とORDER順(西→東)の整合チェック
+      const sortedByOrder = list.slice().sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b));
+      sortedByOrder.forEach((r,idx)=>{ if(R.number[r]!==idx+1) fail('西→東の並びと番号が不整合: '+r); });
+    });
+    // プレステ図形: 宣告1/4=○固定
+    const s1 = R.roleOfSengokuNum[1], s4 = R.roleOfSengokuNum[4];
+    if(R.presteShape[s1]!=='○') fail('宣告1が○でない: '+R.presteShape[s1]);
+    if(R.presteShape[s4]!=='○') fail('宣告4が○でない: '+R.presteShape[s4]);
+    // 宣告に×はつかない
+    sengokuRoles.forEach(r=>{ if(R.presteShape[r]==='×') fail('宣告に×がついた: '+r); });
+    // 宣告2/3は▽□が1つずつ
+    const s2shape = R.presteShape[R.roleOfSengokuNum[2]], s3shape = R.presteShape[R.roleOfSengokuNum[3]];
+    const s23 = [s2shape, s3shape].sort();
+    if(JSON.stringify(s23)!==JSON.stringify(['triangle','square'].sort()) && JSON.stringify(s23)!==JSON.stringify(['▽','□'])) {
+      // 許容: 順不同で▽と□が1つずつ
+      if(!(s23[0]==='□' && s23[1]==='▽')) fail('宣告2/3の図形が▽□1つずつでない: '+s23.join(','));
+    }
+    // 無職=×2/▽1/□1
+    const mushokuShapes = mushokuRoles.map(r=>R.presteShape[r]).sort();
+    if(JSON.stringify(mushokuShapes)!==JSON.stringify(['×','×','□','▽'].sort())) fail('無職の図形構成が×2▽1□1でない: '+mushokuShapes.join(','));
+    // 無職▽/□の行き先が宣告の対角
+    mushokuRoles.forEach(r=>{
+      const shape = R.presteShape[r];
+      if(shape==='▽'||shape==='□'){
+        const dest = R.finalDest[r];
+        const sengokuShapeAtNW = R.presteShape[R.roleOfSengokuNum[2]];
+        const sengokuShapeAtNE = R.presteShape[R.roleOfSengokuNum[3]];
+        let expect = null;
+        if(shape===sengokuShapeAtNW) expect='SE'; else if(shape===sengokuShapeAtNE) expect='SW';
+        if(dest!==expect) fail('無職'+shape+'の行き先が対角になっていない: '+r+' dest='+dest+' expect='+expect);
+      }
+    });
+    // ×の北南割当が並び順通り(西寄り=北)
+    const batsuNumsSorted = R.batsuRoles.map(r=>R.number[r]).sort((a,b)=>a-b);
+    R.batsuRoles.forEach(r=>{
+      const expect = (R.number[r]===batsuNumsSorted[0]) ? 'N' : 'S';
+      if(R.finalDest[r]!==expect) fail('×の南北割当が不整合: '+r);
+    });
+    // 宣告1/4の行き先=center、宣告2/3の行き先=stay
+    if(R.finalDest[s1]!=='center') fail('宣告1の行き先がcenterでない');
+    if(R.finalDest[s4]!=='center') fail('宣告4の行き先がcenterでない');
+    if(R.finalDest[R.roleOfSengokuNum[2]]!=='stay') fail('宣告2の行き先がstayでない');
+    if(R.finalDest[R.roleOfSengokuNum[3]]!=='stay') fail('宣告3の行き先がstayでない');
+    // 視線の角度差が135or180
+    if(R.gazeDiff!==135 && R.gazeDiff!==180) fail('視線の角度差が135/180以外: '+R.gazeDiff);
+    const actualDiff = angDiff(R.gazeA, R.gazeB);
+    if(Math.abs(actualDiff-R.gazeDiff) > 1e-6 && Math.abs(actualDiff-(360-R.gazeDiff))>1e-6) fail('視線の実角度差が設定と不整合');
+    // 安全な向きが必ず1つ以上存在する(135/180離れなら常に安全方向が残る)
+    if(R.safeDirs.length===0) fail('安全な向きが0件: gazeA='+R.gazeA+' gazeB='+R.gazeB);
+    // safeDirsの各向きが両視線から90度以上離れていることの再確認
+    R.safeDirs.forEach(d=>{
+      if(angDiff(d,R.gazeA)<90-1e-9 || angDiff(d,R.gazeB)<90-1e-9) fail('safeDirsに不正な向きが混入: '+d);
+    });
+    // ウィング対応
+    if(R.wingDest[R.roleOfSengokuNum[1]]!=='W') fail('宣告1のウィングがWでない');
+    if(R.wingDest[R.roleOfSengokuNum[2]]!=='NW') fail('宣告2のウィングがNWでない');
+    if(R.wingDest[R.roleOfSengokuNum[3]]!=='NE') fail('宣告3のウィングがNEでない');
+    if(R.wingDest[R.roleOfSengokuNum[4]]!=='E') fail('宣告4のウィングがEでない');
+    // 中央入りタイミング整合
+    ORDER.forEach(r=>{
+      const g=R.group[r], num=R.number[r];
+      const expect = g==='mushoku' ? ((num===2||num===3)?'A':'B') : ((num===1||num===4)?'A':'B');
+      if(R.timing[r]!==expect) fail('中央入りタイミングが不整合: '+r);
+    });
+  }
+  return {n, bad, problems};
+}
+
+// Node.js から node --check ではなく node で直接selfTestを走らせられるようにエクスポート
+if(typeof module !== 'undefined' && module.exports){
+  module.exports = { drawScenario, selfTest, ORDER, DIR };
+}
+
+// =====================================================================
+// UI (ブラウザ実行時のみ)
+// =====================================================================
+if(typeof document !== 'undefined'){
+(function(){
+
+let selectedRole=null, timeLimitMs=30000, reviewMode=true;
+const roleGrid=document.getElementById('roleGrid');
+Object.keys(ROLES).forEach(id=>{
+  const r=ROLES[id];
+  const btn=document.createElement('div');
+  btn.className='role-btn '+r.cls;
+  btn.textContent=id;
+  btn.onclick=()=>{
+    document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedRole=id;
+  };
+  roleGrid.appendChild(btn);
+});
+const secondsSlider=document.getElementById('secondsSlider');
+const secondsInput=document.getElementById('secondsInput');
+const DEFAULT_SECONDS = {review:30, practice:12};
+function setSeconds(sec){
+  sec = Math.max(3, Math.min(120, Math.round(sec)));
+  timeLimitMs = sec*1000;
+  secondsSlider.value = Math.min(60, sec);
+  secondsInput.value = sec;
+}
+secondsSlider.oninput=()=> setSeconds(parseInt(secondsSlider.value,10));
+secondsInput.oninput=()=>{ if(secondsInput.value!=='') setSeconds(parseInt(secondsInput.value,10)||DEFAULT_SECONDS.practice); };
+document.querySelectorAll('#modeGrid .speed-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#modeGrid .speed-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    reviewMode = btn.dataset.mode==='review';
+    document.getElementById('startBtn').textContent = reviewMode? '確認スタート' : '練習スタート';
+    document.getElementById('speedPanelTitle').textContent = reviewMode? '確認モードの待ち時間(秒)' : '練習モードの制限時間(秒)';
+    document.getElementById('secondsHint').textContent = reviewMode
+      ? '緑をタップすれば即座に次へ進めます。この秒数は「タップしなかった場合」に自動で次へ進むまでの待ち時間です。'
+      : 'この秒数以内にタップできないと不正解になります。人が反応するには10秒前後が目安です。';
+    setSeconds(DEFAULT_SECONDS[reviewMode?'review':'practice']);
+  };
+});
+document.getElementById('startBtn').onclick=()=>{
+  if(!selectedRole){ selectedRole = 'MT'; document.querySelector('.role-btn').classList.add('selected'); }
+  document.getElementById('setupScreen').hidden=true;
+  document.getElementById('battleScreen').hidden=false;
+  document.getElementById('resultScreen').hidden=true;
+  startRun();
+};
+document.getElementById('retryBtn').onclick=()=>{
+  document.getElementById('resultScreen').hidden=true;
+  document.getElementById('battleScreen').hidden=false;
+  startRun();
+};
+document.getElementById('backBtn').onclick=()=>{
+  document.getElementById('resultScreen').hidden=true;
+  document.getElementById('setupScreen').hidden=false;
+};
+
+let svg, score=0, total=0, logEl, timerTimeout;
+let tokens={};
+
+function log(text, ok){
+  const div=document.createElement('div');
+  div.style.color = ok===true? '#3ddc84' : ok===false? '#ff5c6c' : '#8ea0c4';
+  div.textContent=text;
+  logEl.prepend(div);
+}
+function setMsg(text, kind){
+  const el=document.getElementById('msg');
+  el.textContent=text;
+  el.style.color = kind==='good'? 'var(--good)' : kind==='bad' ? 'var(--bad)' : 'var(--text)';
+}
+function setScore(){ document.getElementById('scoreTag').textContent = reviewMode? '確認モード' : score+'/'+total; }
+function setInfo(html){ document.getElementById('infoText').innerHTML = html; }
+
+function initSVG(gerrickMarker){
+  svg = document.getElementById('arena');
+  svg.innerHTML='';
+  const bg=svgEl('circle',{cx:0,cy:0,r:210,fill:'#141b2c',stroke:'#3a4a70','stroke-width':2});
+  svg.appendChild(bg);
+  [45,135,225,315].forEach(a=>{
+    const p=polar(a,210);
+    svg.appendChild(svgEl('line',{x1:0,y1:0,x2:p.x,y2:p.y,stroke:'#2a3556','stroke-width':1}));
+  });
+  // 元マーカーをゲリック北基準に回転させて表示
+  const gerrickAngle = RAW_MARKERS.find(m=>m.id===gerrickMarker).angle;
+  RAW_MARKERS.forEach(m=>{
+    const dispAngle = ((m.angle - gerrickAngle) % 360 + 360) % 360;
+    const p = polar(dispAngle, 185);
+    const col = MARKER_COLORS[m.id];
+    svg.appendChild(svgEl('circle',{cx:p.x,cy:p.y,r:11,fill:'#141b2c',stroke:col,'stroke-width':2}));
+    const t=svgEl('text',{x:p.x,y:p.y+4,fill:col,'font-size':11,'font-weight':'bold','text-anchor':'middle'});
+    t.textContent = m.id + (m.id===gerrickMarker?'(北)':'');
+    svg.appendChild(t);
+  });
+  // ゲリックアイコン(常に画面上=北)
+  const g=svgEl('g',{});
+  g.appendChild(svgEl('circle',{cx:0,cy:-185,r:14,fill:'#3a2233',stroke:'#ffcc4d','stroke-width':2}));
+  const gt=svgEl('text',{x:0,y:-181,fill:'#ffcc4d','font-size':10,'text-anchor':'middle'});
+  gt.textContent='斧';
+  g.appendChild(gt);
+  svg.appendChild(g);
+  // 中心
+  svg.appendChild(svgEl('circle',{cx:0,cy:0,r:6,fill:'#555'}));
+}
+
+function drawToken(role, angle, r){
+  const info=ROLES[role];
+  const p=polar(angle,r);
+  const isUser = role===selectedRole;
+  const g=svgEl('g',{transform:`translate(${p.x},${p.y})`});
+  g.appendChild(svgEl('circle',{r:13, fill:info.color, stroke:isUser?'#ffffff':'#0a0e18','stroke-width':isUser?3:1.5}));
+  const t=svgEl('text',{x:0,y:3.5,fill:'#08111f','font-size':10,'font-weight':'bold','text-anchor':'middle'});
+  t.textContent=role;
+  g.appendChild(t);
+  svg.appendChild(g);
+  tokens[role]={angle,r,g};
+  return g;
+}
+function moveTokenAnimated(role, angle, r, ms){
+  const tok=tokens[role];
+  if(!tok) return;
+  const p=polar(angle,r);
+  tok.g.style.transition = `transform ${ms}ms ease-in-out`;
+  tok.g.setAttribute('transform', `translate(${p.x},${p.y})`);
+  tok.angle=angle; tok.r=r;
+}
+function applySeparation(ms){
+  const rs=Object.keys(tokens);
+  const pts=rs.map(role=>{const t=tokens[role];const p=polar(t.angle,t.r);return {role,x:p.x,y:p.y};});
+  const parent=pts.map((_,i)=>i);
+  const find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+    if(Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y)<20) parent[find(i)]=find(j);
+  }
+  const groups={};
+  pts.forEach((p,i)=>{const g=find(i);(groups[g]=groups[g]||[]).push(p);});
+  Object.values(groups).forEach(g=>{
+    const cx=g.reduce((s,p)=>s+p.x,0)/g.length, cy=g.reduce((s,p)=>s+p.y,0)/g.length;
+    g.forEach((p,k)=>{
+      const tok=tokens[p.role];
+      let x=p.x, y=p.y;
+      if(g.length>1){
+        const R=10+3.5*g.length;
+        const a=(k/g.length)*2*Math.PI - Math.PI/2;
+        x=cx+R*Math.cos(a); y=cy+R*Math.sin(a);
+      }
+      tok.g.style.transition=`transform ${ms||300}ms ease-in-out`;
+      tok.g.setAttribute('transform',`translate(${x},${y})`);
+    });
+  });
+}
+function clearTimer(){ clearTimeout(timerTimeout); }
+function runTimer(ms, onExpire){
+  const bar=document.getElementById('timerBar');
+  bar.style.transition='none';
+  bar.style.width='100%';
+  requestAnimationFrame(()=>{
+    bar.style.transition=`width ${ms}ms linear`;
+    bar.style.width='0%';
+  });
+  timerTimeout=setTimeout(onExpire, ms);
+}
+function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+function waitForResultButton(){
+  const btn=document.getElementById('viewResultBtn');
+  btn.hidden=false;
+  return new Promise(resolve=>{
+    btn.onclick=()=>{ btn.hidden=true; resolve(); };
+  });
+}
+
+// generic tap-choice phase
+function askChoice(promptText, choices, correctId, timeMs, cb, explain){
+  const correctIds = Array.isArray(correctId) ? correctId : [correctId];
+  svg.querySelectorAll('.slot').forEach(el=>el.remove());
+  document.getElementById('phaseLabel').textContent=promptText;
+  if(!reviewMode){ total++; setScore(); }
+  const els=[];
+  let answered=false;
+  choices.forEach(ch=>{
+    const p=polar(ch.angle, ch.r);
+    const g=svgEl('g',{class:'slot', 'data-id':ch.id, transform:`translate(${p.x},${p.y})`});
+    const isCorrect = correctIds.includes(ch.id);
+    const c=svgEl('circle',{r:20,
+      fill: reviewMode&&isCorrect? '#215c3a':'#22304f',
+      stroke: reviewMode&&isCorrect? '#3ddc84':'#5fb3ff',
+      'stroke-width': reviewMode&&isCorrect? 4:2, 'stroke-dasharray':'4,3'});
+    if(reviewMode&&isCorrect) c.setAttribute('class','reviewHi');
+    g.appendChild(c);
+    if(ch.label){
+      const t=svgEl('text',{x:0,y:4,fill: reviewMode&&isCorrect?'#bfffd8':'#8ea0c4','font-size':9,'text-anchor':'middle'});
+      t.textContent=ch.label;
+      g.appendChild(t);
+    }
+    g.addEventListener('click',()=>{
+      if(answered) return;
+      const ok = correctIds.includes(ch.id);
+      if(reviewMode){
+        answered=true; clearTimer();
+        cb(true);
+      } else {
+        answered=true; clearTimer();
+        finishChoice(els, ch.id, correctIds, ok);
+        cb(ok);
+      }
+    });
+    svg.appendChild(g);
+    els.push({id:ch.id, g, c});
+  });
+  if(reviewMode){
+    setMsg('【確認】'+(explain||'緑が正解です')+' … 緑をタップで次へ ▶');
+    runTimer(timeMs, ()=>{ if(answered) return; answered=true; cb(true); });
+  } else {
+    setMsg(promptText);
+    runTimer(timeMs, ()=>{
+      if(answered) return; answered=true;
+      finishChoice(els, null, correctIds, false);
+      setMsg('時間切れ…', 'bad');
+      log('時間切れ (正解: '+correctIds.join('/')+')', false);
+      cb(false);
+    });
+  }
+}
+function finishChoice(els, chosenId, correctIds, ok){
+  els.forEach(e=>{
+    if(correctIds.includes(e.id)){ e.c.setAttribute('fill', '#215c3a'); e.c.setAttribute('stroke', '#3ddc84'); }
+    else if(e.id===chosenId){ e.c.setAttribute('fill', '#5c2130'); e.c.setAttribute('stroke', '#ff5c6c'); }
+  });
+  if(ok){ score++; setScore(); setMsg('正解！', 'good'); log('正解: '+correctIds.join('/'), true); }
+}
+function ask(promptText, choices, correctId, explain){
+  return new Promise(resolve=>{
+    askChoice(promptText, choices, correctId, timeLimitMs, ()=>resolve(), explain);
+  }).then(v=>{ clearTimer(); svg.querySelectorAll('.slot').forEach(el=>el.remove()); return v; });
+}
+
+// ---------- ゲーム進行 ----------
+async function startRun(){
+  score=0; total=0; setScore();
+  logEl=document.getElementById('log'); logEl.innerHTML='';
+  document.getElementById('roleTag').textContent=selectedRole;
+  document.getElementById('viewResultBtn').hidden=true;
+
+  const R = drawScenario();
+  initSVG(R.gerrickMarker);
+  tokens={};
+
+  const myGroup = R.group[selectedRole];
+  const myNum = R.number[selectedRole];
+  const groupJP = myGroup==='sengoku' ? '死の宣告' : '無職';
+  setInfo(`ゲリック出現マーカー: <b>${R.gerrickMarker}</b>(これを北とみなす)<br>あなた=<b>${selectedRole}</b> / <b>${groupJP}${myNum}番</b>`);
+
+  // 初期整列(横一列, ゲリック手前=南寄りに並べる)
+  ORDER.forEach((r,i)=>{
+    const x = (i-3.5)*30;
+    drawToken(r, 0, 0);
+    const p = {x, y:160};
+    tokens[r].g.setAttribute('transform',`translate(${p.x},${p.y})`);
+    tokens[r].angle=null; tokens[r].r=null; tokens[r]._xy=p;
+  });
+  await wait(400);
+
+  // ---- 出題1: 散開位置 ----
+  document.getElementById('phaseLabel').textContent='ゲリック出現！死の宣告/無職が判明。整列順で番号決定。';
+  setMsg('自分の散開スロットを確認してください');
+  await wait(reviewMode ? 1200 : 600);
+
+  const scatterChoices = [];
+  ['mushoku','sengoku'].forEach(g=>{
+    [1,2,3,4].forEach(n=>{
+      const slot = R.SCATTER[g][n];
+      scatterChoices.push({id:g+n, angle:slot.angle, r:slot.r, label:slot.label});
+    });
+  });
+  const myScatterId = myGroup+myNum;
+  const myScatter = R.SCATTER[myGroup][myNum];
+  await ask('出題1: あなたの散開位置はどこ？', scatterChoices, myScatterId,
+    `${groupJP}${myNum}番の位置=${myScatter.label}`);
+
+  // 全員を散開位置へ移動(自動)
+  ORDER.forEach(r=>{
+    const g=R.group[r], n=R.number[r];
+    const slot=R.SCATTER[g][n];
+    moveTokenAnimated(r, slot.angle, slot.r, MOVE_MS);
+  });
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+300);
+
+  // ---- 出題2: 中央入りタイミング ----
+  const timingChoices = [
+    {id:'A', angle:315, r:230, label:'百雷と同時'},
+    {id:'B', angle:45, r:230, label:'ヘヴィ3発目を見てから'},
+  ];
+  await ask('出題2: 百雷(円)＋ヘヴィインパクトの中央入りタイミングは？', timingChoices, R.timing[selectedRole],
+    R.timing[selectedRole]==='A' ? '北2名+内周宣告2名=百雷と同時に中央へ' : '外周4名=ヘヴィ3発目を見てから中央へ');
+
+  // 先組(A)→後組(B)の順で中央へ集合(自動演出)
+  // 2026-07-19追記(ぬけまる=こまぞう改善版アニメ解説との突き合わせで確定):
+  // 後組4名(無1/無4/宣告2/宣告3)は百雷着弾の瞬間に動くのではなく、まず少し外周側(南寄り)へ
+  // ずれてツイスター(百雷の連続範囲)を避け、その後ヘヴィインパクト(リング)3回目を見てから中央へ入る。
+  // 先組4名(無2/無3/宣告1/宣告4)は従来どおり百雷(リング1回目)と同時に中央へ、
+  // 後組は自分の避け動作を挟んでリング2回目に入る(演出上の位置合わせ。出題2の2択・正解判定は変更なし)。
+  const groupA = ORDER.filter(r=>R.timing[r]==='A');
+  const groupB = ORDER.filter(r=>R.timing[r]==='B');
+  document.getElementById('phaseLabel').textContent='百雷着弾！先組(A)が中央へ移動';
+  groupA.forEach((r,i)=> moveTokenAnimated(r, (i-1.5)*20, 40, MOVE_MS));
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+  document.getElementById('phaseLabel').textContent='ヘヴィインパクト(リング)発生！後組(B)はまず少し外(南)へずれてツイスターを回避';
+  setMsg('後組は百雷の連続範囲(ツイスター)を踏まないよう、その場から少し外周側へずれて待つ');
+  groupB.forEach(r=>{
+    const t = tokens[r];
+    // 自分の現在角度を保ったまま半径だけ少し外側(+外周方向)へずらしてツイスター回避
+    moveTokenAnimated(r, t.angle, Math.min(t.r+18, 208), MOVE_MS*0.7);
+  });
+  applySeparation(MOVE_MS*0.7);
+  await wait(MOVE_MS*0.7+500);
+  document.getElementById('phaseLabel').textContent='ヘヴィインパクト3発目！後組(B)も中央へ';
+  groupB.forEach((r,i)=> moveTokenAnimated(r, (i-1.5)*20+120, 40, MOVE_MS));
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+
+  // プレステ前整列(自動・判断不要)
+  document.getElementById('phaseLabel').textContent='プレステ前整列(中央) ※自動移動・判断不要';
+  setMsg('宣告2/3=北寄り中央／宣告1=西・宣告4=東／無職=南側に西から1〜4で整列');
+  const s2=R.roleOfSengokuNum[2], s3=R.roleOfSengokuNum[3], s1=R.roleOfSengokuNum[1], s4=R.roleOfSengokuNum[4];
+  moveTokenAnimated(s2, DIR.NW, 50, MOVE_MS);
+  moveTokenAnimated(s3, DIR.NE, 50, MOVE_MS);
+  moveTokenAnimated(s1, DIR.W, 60, MOVE_MS);
+  moveTokenAnimated(s4, DIR.E, 60, MOVE_MS);
+  const mushokuOrder = [1,2,3,4].map(n=>R.roleOfMushokuNum[n]);
+  mushokuOrder.forEach((r,i)=> moveTokenAnimated(r, 180+(i-1.5)*18, 55, MOVE_MS));
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+
+  // ---- 出題3: プレステマーカーの行き先 ----
+  const myShape = R.presteShape[selectedRole];
+  document.getElementById('phaseLabel').textContent=`プレステマーカー確定！あなたのマーカー: ${myShape}`;
+  await wait(reviewMode ? 1000 : 500);
+
+  const octaChoices = [
+    {id:'N', angle:DIR.N, r:90, label:'北(×)'},
+    {id:'S', angle:DIR.S, r:90, label:'南(×)'},
+    {id:'SE', angle:DIR.SE, r:90, label:'南東'},
+    {id:'SW', angle:DIR.SW, r:90, label:'南西'},
+    {id:'center', angle:0, r:0, label:'中央へ'},
+    {id:'stay', angle: myGroup==='sengoku' ? (myNum===2?DIR.NW:DIR.NE) : DIR.N, r: myGroup==='sengoku'? 50 : 90, label:'その場(動かない)'},
+  ];
+  // stay選択肢は宣告2/3のときのみ意味を持つが、常に選択肢として提示(誤答選択肢として機能)
+  let explain3;
+  if(myGroup==='mushoku'){
+    if(myShape==='×') explain3 = `無職×: 西側の人=北／東側の人=南 → あなたは${R.finalDest[selectedRole]}`;
+    else explain3 = `無職${myShape}: 宣告の同じ図形の対角へ → あなたは${R.finalDest[selectedRole]}`;
+  } else {
+    explain3 = myShape==='○' ? '○が付いたら中央へ寄る' : `${myShape}持ちはその場固定(動かない)`;
+  }
+  await ask('出題3: プレステマーカー確定後、あなたの行き先は？', octaChoices, R.finalDest[selectedRole], explain3);
+
+  // 最終配置へ移動(自動)
+  document.getElementById('phaseLabel').textContent='最終配置へ移動(自動)';
+  const OCTA_R = 85;
+  ORDER.forEach(r=>{
+    const dest = R.finalDest[r];
+    let angle, rad;
+    if(dest==='N'){ angle=DIR.N; rad=OCTA_R; }
+    else if(dest==='S'){ angle=DIR.S; rad=OCTA_R; }
+    else if(dest==='SE'){ angle=DIR.SE; rad=OCTA_R; }
+    else if(dest==='SW'){ angle=DIR.SW; rad=OCTA_R; }
+    else if(dest==='center'){ angle = (R.group[r]==='sengoku'&&R.number[r]===1)?DIR.W:DIR.E; rad=OCTA_R; }
+    else { angle = (R.number[r]===2)?DIR.NW:DIR.NE; rad=OCTA_R; }
+    moveTokenAnimated(r, angle, rad, MOVE_MS);
+  });
+  applySeparation(MOVE_MS);
+  await wait(MOVE_MS+400);
+
+  // ---- 出題4: 視線 ----
+  document.getElementById('phaseLabel').textContent='待機中に視線が2本出現(邪竜の邪眼＋トールダン)';
+  // 視線の見た目(外周に印)
+  [R.gazeA, R.gazeB].forEach((a,idx)=>{
+    const p=polar(a,205);
+    const g=svgEl('g',{class:'gazeMark'});
+    g.appendChild(svgEl('circle',{cx:p.x,cy:p.y,r:14,fill: idx===0?'#3a2233':'#233a2a', stroke: idx===0?'#ff9dc7':'#ffcc4d','stroke-width':2}));
+    const t=svgEl('text',{x:p.x,y:p.y+4,fill: idx===0?'#ff9dc7':'#ffcc4d','font-size':9,'text-anchor':'middle'});
+    t.textContent = idx===0? '邪眼' : '王';
+    g.appendChild(t);
+    svg.appendChild(g);
+  });
+  await wait(reviewMode ? 800 : 400);
+  const dirChoices = [0,45,90,135,180,225,270,315].map(d=>({id:'d'+d, angle:d, r:150, label:''}));
+  const correctGazeIds = R.safeDirs.map(d=>'d'+d);
+  await ask('出題4: 視線を避ける向きは？(正面±90°未満に視線が入るとアウト)', dirChoices, correctGazeIds,
+    `視線: 邪眼=${R.gazeA}° / 王=${R.gazeB}° (差${R.gazeDiff}°) → 安全な向き: ${R.safeDirs.join('°,')}°`);
+  svg.querySelectorAll('.gazeMark').forEach(el=>el.remove());
+
+  // ノックバック(自動)
+  document.getElementById('phaseLabel').textContent='フェイスアンムーブでノックバック(自動)';
+  ORDER.forEach(r=>{
+    const t=tokens[r];
+    moveTokenAnimated(r, t.angle, t.r+60, MOVE_MS);
+  });
+  await wait(MOVE_MS+300);
+
+  // ---- 出題5: サルヴェーションウィング(宣告のみ) ----
+  if(myGroup==='sengoku'){
+    const wingChoices = [
+      {id:'W', angle:DIR.W, r:200, label:'西外(無1跡)'},
+      {id:'NW', angle:DIR.NW, r:170, label:'北西(無2跡)'},
+      {id:'NE', angle:DIR.NE, r:170, label:'北東(無3跡)'},
+      {id:'E', angle:DIR.E, r:200, label:'東外(無4跡)'},
+    ];
+    await ask('出題5: ノックバック後に踏むサルヴェーションウィングは？', wingChoices, R.wingDest[selectedRole],
+      `宣告${myNum}番 → ${R.wingDest[selectedRole]}`);
+  } else {
+    document.getElementById('phaseLabel').textContent='無職はサルヴェーションウィングを踏まない(判断なし)';
+    setMsg('無職はそのまま待機。宣告組が白円(サルヴェーションウィング)を踏むのを見届けよう。');
+    await wait(reviewMode ? 1500 : 800);
+  }
+
+  document.getElementById('phaseLabel').textContent='処理完了！(ホーリーメテオはこのシムに含まれません)';
+  await waitForResultButton();
+  showResult();
+}
+
+function showResult(){
+  document.getElementById('battleScreen').hidden=true;
+  document.getElementById('resultScreen').hidden=false;
+  document.getElementById('finalScore').textContent = reviewMode? '確認モード完了' : score+'/'+total;
+  const verdict = reviewMode ? 'よく確認できましたか？次は練習モードで試してみましょう。'
+    : (total>0 && score===total ? '全問正解！死刻マスターです。' : score/Math.max(total,1)>=0.6 ? 'まずまず！復習しておきましょう。' : 'もう一度確認モードで流れを見直しましょう。');
+  document.getElementById('finalVerdict').textContent = verdict;
+}
+
+// ページ内selfTestをコンソールから呼べるようにグローバル公開
+window.selfTest = selfTest;
+window.drawScenario = drawScenario;
+
+})();
+}
+</script>
+</body>
+</html>
