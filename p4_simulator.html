@@ -26,6 +26,7 @@
     の4個(TH1人受け)。2段階まで育てて起爆。育つ順は黄→青。
   ・黄玉起爆(赤線のDPSペア D1+D2/D3+D4が頭割り)後、邪眼の南北で線の受け渡し(DPS→THへ赤線):
     D1⇔MT=青眼北 / D2⇔H1=青眼南 / D3⇔ST=赤眼北 / D4⇔H2=赤眼南。
+    黄玉処理後、DPSが渡しに来るまでTHは動かない。線の色(デバフ)が変わったのを見てから動く(ダイブ交換時も同様)。
     受け渡し後、TH(赤線)が各自の青玉を起爆。
   ・玉処理後は青眼(西の目)に集合: 赤線(=MT/ST/H1/H2)が目を中心に×字散開、青線(DPS)は目の直下に密集。
     ×字の番号と役割は固定: ①=北西=MT、②=北東=ST、③=南東=H2、④=南西=H1。
@@ -36,7 +37,7 @@
       3回目→「1回目に被弾した2人」が交代(優先度 MT＞ST＞H2＞H1)
       4回目→交代なし(以降ダイブなし)
     被弾した人は線を渡したら目の直下(青線だまり)へ移動。
-  ・ダイブ4回終了→片方の目を破壊→憤怒の波動(全体)→もう片方も破壊してフェーズ終了。
+  ・ダイブ4回終了→先に青眼(西)を破壊→憤怒の波動(全体)→最後に赤眼を破壊してフェーズ終了。
 
   モデル化のルール(教皇庁再び / scope=full時):
   ・タンクLB3はオルシュファンが南から「危ないッ！」と登場したタイミングで発動。
@@ -161,6 +162,8 @@
           黄玉=赤線のDPSペア(D1+D2/D3+D4)が頭割りで起爆→
           <b>邪眼の南北で線の受け渡し</b>(D1⇔MT=青眼北／D2⇔H1=青眼南／D3⇔ST=赤眼北／D4⇔H2=赤眼南)→
           赤線になったTHが各自の青玉を起爆。<br>
+          <b>受け渡しの鉄則</b>：黄玉処理後、<b>DPSが渡しに来るまでTHは動かない</b>。
+          接触したら<b>線の色(デバフ)が変わったのをしっかり見てから動く</b>(ダイブの交換時も同じ)。<br>
           <b>集合散開</b>：玉処理後は<b>青眼(西の目)</b>に集合。このとき赤線=<b>MT/ST/H1/H2</b>のはず。
           ×字の役割は固定：<b>①=北西=MT／②=北東=ST／③=南東=H2／④=南西=H1</b>。青線(DPS)は<b>目の直下に密集</b>(巻き込まれると外周ノックバック死)。<br>
           <b>ミラージュダイブ×4</b>：毎回、赤線のうちランダム2人へ円形範囲。被弾者は突耐性低下(連続被弾は即死)。<br>
@@ -169,7 +172,7 @@
           ・3回目→<b>1回目に被弾した2人</b>が交代(優先度 MT＞ST＞H2＞H1)<br>
           ・4回目→<b>交代なし</b>。<br>
           交代は必ず<b>青線側から動いて</b>重なりに行く。被弾した人は線を渡したら目の直下へ。<br>
-          <b>締め</b>：ダイブ4回目のころに片方の目がほぼ削れているので先に破壊→<b>憤怒の波動</b>(全体攻撃、青線分の回復に注意)→もう片方も破壊。<br>
+          <b>締め</b>：<b>先に青眼(西)から破壊</b>→<b>憤怒の波動</b>(全体攻撃、青線4人分の被弾で青眼が僅かに回復)→最後に赤眼を破壊。<br>
           <b>補足</b>：邪竜の影の支配率が溜まる前に両目を破壊する必要がある。玉は鎖が付いた瞬間に出現し、5秒ごとに1段階成長する。<br>
           <hr class="div">
           <b>教皇庁再び(通し時)</b>：オルシュファンが南から「危ないッ！」と登場したら<b>タンクLB3</b>。
@@ -739,17 +742,28 @@ async function startRun(){
       });
       await ask('赤線を渡す相手は？', choices, partner, handoffExplain+'。相手は'+partner);
     } else {
-      const choices=Object.keys(HANDOFF_XY).map(key=>{
-        const p=HANDOFF_XY[key];
-        return {id:key, x:p.x, y:p.y, label:HANDOFF_LABEL[key]};
-      });
-      await ask('赤線をどこで受け取る？', choices, HANDOFF_POINT[selectedRole], handoffExplain);
+      // TH: DPSが受け渡しに来るまで動かない
+      const myTok=tokens[selectedRole];
+      const goP=HANDOFF_XY[HANDOFF_POINT[selectedRole]];
+      await ask('黄玉が起爆した。あなた(TH)はどうする？', [
+        {id:'wait', x:myTok.x, y:myTok.y-32, label:'その場で待つ'},
+        {id:'go', x:goP.x, y:goP.y, label:'先に走る'},
+      ], 'wait', 'DPSが受け渡しに来るまでTHは動かない(先走ると受け渡し事故のもと)');
     }
-    // 演出: DPSとTHの両方がHANDOFF_POINTへ移動→線交換→THは自分の青玉へ、DPSは目のラインへ寄る
+    // 演出: まずDPSだけが受け渡し位置へ(THはその場で待つ)
     DPS_GROUP.forEach(d=>{
       const p=HANDOFF_XY[HANDOFF_POINT[d]];
       moveTokenXY(d, p.x, p.y, MOVE_MS);
     });
+    await wait(MOVE_MS+300);
+    if(TH_GROUP.includes(selectedRole)){
+      const choices=Object.keys(HANDOFF_XY).map(key=>{
+        const p=HANDOFF_XY[key];
+        return {id:key, x:p.x, y:p.y, label:HANDOFF_LABEL[key]};
+      });
+      await ask('DPSが来た。赤線をどこで受け取る？', choices, HANDOFF_POINT[selectedRole], handoffExplain);
+    }
+    // DPSが来たのを見てからTHが受け取りに動く
     TH_GROUP.forEach(t=>{
       const p=HANDOFF_XY[HANDOFF_POINT[t]];
       moveTokenXY(t, p.x, p.y, MOVE_MS);
@@ -762,6 +776,7 @@ async function startRun(){
       const a=lines[d]; lines[d]=lines[partner]; lines[partner]=a;
     });
     setBanner(); updateLineRings();
+    await info('線の受け渡し', '線の色(デバフ)が変わったのをしっかり見てから動く', BEAT_MS);
     TH_GROUP.forEach(t=>{
       const s=BALL_SLOTS[t];
       moveTokenPolar(t, s.angle, s.r, MOVE_MS);
@@ -862,7 +877,7 @@ async function startRun(){
         {id:'stay', x:myTok.x, y:myTok.y-32, label:'その場'},
       ];
       await ask('あなたが被弾した。線を渡したらどこへ？', choices, 'under',
-        '交換で青線になったら目の直下(青線だまり)へ移動'+(k===1?'。※1回目の被弾者は3回目に交換へ出る担当':''));
+        '線の色(デバフ)が変わったのを見てから目の直下(青線だまり)へ移動'+(k===1?'。※1回目の被弾者は3回目に交換へ出る担当':''));
     } else {
       await info('交換', swapRuleText, BEAT_MS);
     }
@@ -881,6 +896,7 @@ async function startRun(){
       slotOf[s]=targetSlot; delete slotOf[victim];
     });
     setBanner(); updateLineRings();
+    await info('線交換', '線の色(デバフ)が変わったのを確認してから動く。確認できたら被弾者は直下へ', BEAT_MS);
     clearDives();
     const eyeP=eyeXY(EYE_W);
     victims.forEach(v=> moveTokenXY(v, eyeP.x, eyeP.y+18, MOVE_MS));
@@ -892,9 +908,9 @@ async function startRun(){
 
   // フェーズ11: 目の破壊と憤怒の波動
   setCast('憤怒の波動');
-  await info('目の破壊', '4回目のダイブのころに片方の目がほぼ削れている。憤怒の波動(全体攻撃)の前に先へ破壊する', BEAT_MS+600);
+  await info('青眼の破壊', '先に青眼(西)から破壊する。憤怒の波動(全体攻撃)が来る前に削り切る', BEAT_MS+600);
   removeEye(0);
-  await info('憤怒の波動', '残った目の全体攻撃。青線4人分のダメージで倒した目が僅かに回復するが、数発殴れば倒せる', BEAT_MS+600);
+  await info('憤怒の波動', '赤眼の全体攻撃。青線4人分の被弾で青眼が僅かに回復するが、数発殴れば倒せる。最後に赤眼を破壊', BEAT_MS+600);
   removeEye(0);
   await info('邪眼フェーズ終了', '両目を破壊してフェーズクリア。次に備えて集まっておく', BEAT_MS);
 
