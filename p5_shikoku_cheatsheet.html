@@ -1,0 +1,534 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>P5 至天の陣:死刻 カンペ</title>
+<!--
+  2026-07-20 新規作成。p5_fuusou_cheatsheet.html(最新版)をベースに流用。
+  スライド機構(fitStage/translate+scale方式)・ナビ・ガントCSSはそのまま踏襲、方位アイコンのみ
+  ドラゴン→ゲリック(斧)に差し替え。
+  出典: P5儀典トールダン_予習メモ.md「死刻マクロ(こまぞう式改)の解釈」節+「ユーザー回答による確定事項」節
+  (この2つが正)。ARUTORA節・死刻こまぞう式動画文字.txtは補足参考。座標感覚はp5_shikoku_simulator.htmlに準拠。
+
+  重要: このギミックの方位はすべて「ゲリック(斧持ち聖騎士)=北」の相対方位。
+  図では常に上=ゲリック北で統一。実フィールドマーカー(A/1=赤,B/2=黄,C/3=青,D/4=紫)との対応は
+  ゲリックの出現位置次第で毎回変わるため、各図では方位語(時計位置)を主に用いる。
+-->
+<style>
+  :root{
+    --bg:#0a0e18; --panel:#182036; --panel2:#1f2a45; --line:#3a4a70;
+    --accent:#5fb3ff; --good:#3ddc84; --bad:#ff5c6c; --warn:#ffcc4d; --purple:#c96bff;
+    --text:#e8edf7; --dim:#8ea0c4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:100%;height:100%;background:#000;color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;overflow:hidden;}
+  #stage{position:fixed;inset:0;}
+  .slide{
+    position:absolute;left:50%;top:50%;
+    transform-origin:center center;
+    width:1280px;height:720px;
+    background:var(--bg);
+    display:none;
+    flex-direction:column;
+    padding:26px 40px;
+    border-radius:6px;
+  }
+  .slide.active{display:flex;}
+  .slide h1{font-size:34px;color:var(--accent);margin-bottom:4px;text-align:center;}
+  .slide .sub{font-size:16px;color:var(--dim);text-align:center;margin-bottom:10px;}
+  .body{flex:1;display:flex;gap:24px;min-height:0;}
+  .diagWrap{flex:1.05;display:flex;align-items:center;justify-content:center;min-width:0;}
+  .diagWrap svg{width:100%;height:100%;max-height:600px;}
+  .infoCol{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;justify-content:center;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;}
+  .card h2{font-size:18px;color:var(--accent);margin-bottom:8px;}
+  .card p, .card li{font-size:17px;line-height:1.65;}
+  .card ol,.card ul{padding-left:24px;}
+  .action{
+    background:linear-gradient(135deg,#243156,#1a2438);
+    border:2px solid var(--good);
+    border-radius:14px;
+    padding:16px 22px;
+    text-align:center;
+  }
+  .action .label{font-size:14px;color:var(--dim);margin-bottom:4px;}
+  .action .big{font-size:26px;font-weight:bold;color:var(--good);line-height:1.4;}
+  b{color:var(--warn);}
+  .r{color:var(--bad);font-weight:bold;} .y{color:#ffd24d;font-weight:bold;}
+  .bl{color:#4da6ff;font-weight:bold;} .pu{color:var(--purple);font-weight:bold;}
+  .g{color:var(--good);font-weight:bold;}
+  .north{color:var(--accent);font-weight:bold;}
+  /* nav */
+  #nav{position:fixed;bottom:10px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:10px;z-index:5;}
+  #nav button{background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:6px 14px;font-size:14px;cursor:pointer;}
+  #nav button:hover{background:#243156;}
+  #pageDots{display:flex;gap:6px;}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--line);cursor:pointer;}
+  .dot.active{background:var(--accent);}
+  #pageNum{color:var(--dim);font-size:13px;min-width:50px;text-align:center;}
+
+  /* gantt (page7) */
+  .ganttWrap{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 18px;min-height:0;}
+  .gheaderRow{display:flex;margin-bottom:6px;}
+  .gcorner{visibility:hidden;}
+  .glabel{width:150px;flex:0 0 150px;display:flex;align-items:center;font-size:17px;font-weight:bold;
+    border-right:2px solid var(--line);padding-right:10px;}
+  .gheaderTrack{position:relative;flex:1;display:flex;}
+  .gph{flex:1;text-align:center;font-size:14px;color:var(--dim);font-weight:bold;line-height:1.35;padding:2px 4px;}
+  .gdiv{position:absolute;top:0;bottom:-540px;width:0;border-left:1px dashed #3a4a70;z-index:0;}
+  .grow{display:flex;align-items:center;flex:1;min-height:0;}
+  .gtrack{position:relative;flex:1;height:44px;}
+  .gbar{position:absolute;top:4px;bottom:4px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:bold;text-align:center;padding:2px 6px;line-height:1.25;overflow:hidden;}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="nav">
+  <button id="prevBtn">◀ 前へ</button>
+  <div id="pageDots"></div>
+  <button id="nextBtn">次へ ▶</button>
+  <span id="pageNum"></span>
+</div>
+
+<script>
+const ns='http://www.w3.org/2000/svg';
+function E(parent,t,attrs,txt){const e=document.createElementNS(ns,t);for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;parent.appendChild(e);return e;}
+function pol(cx,cy,angleDeg,r){const rad=angleDeg*Math.PI/180;return{x:cx+r*Math.sin(rad),y:cy-r*Math.cos(rad)};}
+
+// clock -> degree (12時=0=北)
+const CLK = h => (h%12)*30;
+
+// 共通: フィールド円+8方向ドット(時計表記)+ゲリック北アイコン(斧)
+function baseField(svg, cx, cy, R, opts){
+  opts = opts||{};
+  E(svg,'circle',{cx,cy,r:R,fill:'#101625',stroke:'#3a4a70','stroke-width':2});
+  for(let h=0; h<12; h+=1.5){
+    const p = pol(cx,cy,CLK(h),R);
+    E(svg,'line',{x1:cx,y1:cy,x2:p.x,y2:p.y,stroke:'#202c48','stroke-width':1});
+  }
+  for(let h=0; h<12; h++){
+    const p = pol(cx,cy,CLK(h),R+16);
+    E(svg,'circle',{cx:p.x,cy:p.y,r:4,fill:'#3a4a70'});
+  }
+  if(opts.markers){
+    const MC=[['A','#ff5c5c',0],['1','#ff5c5c',45],['B','#ffd24d',90],['2','#ffd24d',135],
+              ['C','#4da6ff',180],['3','#4da6ff',225],['D','#c07aff',270],['4','#c07aff',315]];
+    MC.forEach(([id,col,a])=>{
+      const p=pol(cx,cy,a,R-14);
+      E(svg,'circle',{cx:p.x,cy:p.y,r:8,fill:'#141b2c',stroke:col,'stroke-width':1.6,opacity:0.5});
+      E(svg,'text',{x:p.x,y:p.y+3.5,fill:col,'font-size':9,'text-anchor':'middle',opacity:0.6},id);
+    });
+  }
+  E(svg,'circle',{cx,cy,r:5,fill:'#4a5a80'});
+  // ゲリック北アイコン(常に真上・斧)
+  const dp = pol(cx,cy,0,R+34);
+  E(svg,'circle',{cx:dp.x,cy:dp.y,r:16,fill:'#3a2233',stroke:'#ffcc4d','stroke-width':2.5});
+  E(svg,'text',{x:dp.x,y:dp.y+4,fill:'#ffcc4d','font-size':11,'font-weight':'bold','text-anchor':'middle'},'斧');
+  E(svg,'text',{x:dp.x,y:dp.y-24,fill:'#ffcc4d','font-size':13,'font-weight':'bold','text-anchor':'middle'},'北(ゲリック)');
+}
+
+function token(svg,x,y,label,col,hi){
+  E(svg,'circle',{cx:x,cy:y,r:14,fill:col||'#5fb3ff',stroke:hi?'#ffffff':'#0a0e18','stroke-width':hi?3:1.5});
+  E(svg,'text',{x,y:y+4,fill:'#08111f','font-size':11,'font-weight':'bold','text-anchor':'middle'},label);
+}
+function labelText(svg,x,y,txt,col,size){
+  E(svg,'text',{x,y,fill:col||'#e8edf7','font-size':size||13,'font-weight':'bold','text-anchor':'middle'},txt);
+}
+function arrow(svg,x1,y1,x2,y2,col,w){
+  w=w||3;
+  E(svg,'line',{x1,y1,x2,y2,stroke:col,'stroke-width':w});
+  const a=Math.atan2(y2-y1,x2-x1);
+  E(svg,'path',{d:`M${x2},${y2} L${x2-11*Math.cos(a-0.4)},${y2-11*Math.sin(a-0.4)} L${x2-11*Math.cos(a+0.4)},${y2-11*Math.sin(a+0.4)} Z`,fill:col});
+}
+function dashCircle(svg,cx,cy,r,col,label){
+  E(svg,'circle',{cx,cy,r,fill:'none',stroke:col,'stroke-width':2.5,'stroke-dasharray':'6,4'});
+  if(label) E(svg,'text',{x:cx,y:cy-r-8,fill:col,'font-size':12,'font-weight':'bold','text-anchor':'middle'},label);
+}
+function fanArea(svg,cx,cy,R,fromDeg,toDeg,col,label,labelR){
+  const p1=pol(cx,cy,fromDeg,R), p2=pol(cx,cy,toDeg,R);
+  const large = ((toDeg-fromDeg+360)%360)>180 ? 1:0;
+  const d=`M${cx},${cy} L${p1.x},${p1.y} A${R},${R} 0 ${large} 1 ${p2.x},${p2.y} Z`;
+  E(svg,'path',{d, fill:col, opacity:0.22});
+  if(label){
+    const mid=(fromDeg+toDeg)/2;
+    const lp=pol(cx,cy,mid,labelR||R*0.62);
+    E(svg,'text',{x:lp.x,y:lp.y,fill:col,'font-size':14,'font-weight':'bold','text-anchor':'middle'},label);
+  }
+}
+
+const CX=210, CY=250, R=150;
+
+// ===================== ページ定義 =====================
+const pages = [];
+
+// ---------- P1: 整列と北決め ----------
+pages.push({
+  title:'ページ1: 整列と北決め',
+  sub:'詠唱中に西→東で整列 → ゲリック出現方向を北としてカメラを回す',
+  action:'まずゲリックを探す → その方向を12時(北)として横一列を組み直す',
+  build(svg){
+    baseField(svg, CX, CY, R, {markers:true});
+    const roles=['MT','ST','D1','D2','D3','D4','H1','H2'];
+    const cols=['#4da6ff','#1f6fd6','#ff9d4d','#ffcc4d','#ff6b6b','#c96bff','#3ddc84','#1fa25c'];
+    roles.forEach((r,i)=>{
+      const x = CX + (i-3.5)*36;
+      const y = CY + R + 40;
+      token(svg,x,y,r,cols[i]);
+    });
+    labelText(svg, CX, CY+R+70, '西 ←────────────→ 東', '#8ea0c4', 13);
+    labelText(svg, CX, CY-R-86, '西→東で MT ST D1 D2 D3 D4 H1 H2 固定', '#5fb3ff', 13);
+  },
+  infoHTML:`
+    <div class="card">
+      <h2>ゲリック前整列</h2>
+      <p>詠唱中に<b>西→東</b>へ <b>MT ST D1 D2 D3 D4 H1 H2</b> の順で横一列に並ぶ。</p>
+      <p>ゲリックはマップ上の英語マーカー付近に出現 → <b>その方向を北</b>としてカメラを回し、<b>前後移動だけで</b>横一列を保つ。</p>
+    </div>
+    <div class="card">
+      <h2>列内の位置=散開優先度</h2>
+      <p>列内の並び順がそのまま散開の優先度になる。<b>死の宣告4/無職4</b>それぞれの<b>グループ内で西から1,2,3,4番</b>が決まる。</p>
+    </div>
+  `
+});
+
+// ---------- P2: 死の宣告×4の動き ----------
+pages.push({
+  title:'ページ2: 死の宣告×4の動き',
+  sub:'宣告が付いたら1歩下がる → 死1=西内／死4=東内／死2・死3=南側外周寄り',
+  action:'宣告が付いたら → 1歩下がって自分の番号のスロット(南寄り)へ',
+  build(svg){
+    baseField(svg, CX, CY, R, {markers:false});
+    const s1 = pol(CX,CY,270,R*0.55), s4 = pol(CX,CY,90,R*0.55);
+    const s2 = pol(CX,CY,225,R+15), s3 = pol(CX,CY,135,R+15);
+    token(svg,s1.x,s1.y,'死1','#ff5c6c', true);
+    token(svg,s4.x,s4.y,'死4','#ff5c6c', true);
+    token(svg,s2.x,s2.y,'死2','#ff5c6c', true);
+    token(svg,s3.x,s3.y,'死3','#ff5c6c', true);
+    labelText(svg,s1.x-40,s1.y,'西内側','#8ea0c4',12);
+    labelText(svg,s4.x+40,s4.y,'東内側','#8ea0c4',12);
+    labelText(svg,s2.x-20,s2.y+26,'南西外周寄り','#8ea0c4',12);
+    labelText(svg,s3.x+20,s3.y+26,'南東外周寄り','#8ea0c4',12);
+    labelText(svg,CX,CY-R-86,'宣告持ち=1歩下がる(南寄り)','#ff5c6c',13);
+  },
+  infoHTML:`
+    <div class="card">
+      <h2>死の宣告(ランダム4名)</h2>
+      <p>宣告が付いた4名は整列位置から<b>1歩下がる</b>。列内の西→東番号で<b>死1〜死4</b>が決まる。</p>
+      <ul>
+        <li><b>死1</b> = 西内側／<b>死4</b> = 東内側</li>
+        <li><b>死2・死3</b> = 南側、<b>外周寄り</b>に立つ</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>なぜ外周寄り？</h2>
+      <p><b>外周寄りに立って無職と自然に距離を取る</b>ことで、直後の<b>百雷(足元円)が重ならない</b>。これがこまぞう改の肝。</p>
+    </div>
+  `
+});
+
+// ---------- P3: 無職4名の動き ----------
+pages.push({
+  title:'ページ3: 無職4名の動き',
+  sub:'無職は1歩前へ → 無1=西外／無2=北西／無3=北東／無4=東外(北半分)',
+  action:'無職が確定したら → 1歩前に出て自分の番号のスロット(北半分)へ',
+  build(svg){
+    baseField(svg, CX, CY, R, {markers:false});
+    const m1 = pol(CX,CY,270,R+20), m4 = pol(CX,CY,90,R+20);
+    const m2 = pol(CX,CY,315,R*0.55), m3 = pol(CX,CY,45,R*0.55);
+    token(svg,m1.x,m1.y,'無1','#5fb3ff', true);
+    token(svg,m4.x,m4.y,'無4','#5fb3ff', true);
+    token(svg,m2.x,m2.y,'無2','#5fb3ff', true);
+    token(svg,m3.x,m3.y,'無3','#5fb3ff', true);
+    labelText(svg,m1.x-38,m1.y,'西外周','#8ea0c4',12);
+    labelText(svg,m4.x+38,m4.y,'東外周','#8ea0c4',12);
+    labelText(svg,m2.x-24,m2.y-22,'北西','#8ea0c4',12);
+    labelText(svg,m3.x+24,m3.y-22,'北東','#8ea0c4',12);
+    labelText(svg,CX,CY-R-86,'無職=1歩前へ(北半分)','#5fb3ff',13);
+  },
+  infoHTML:`
+    <div class="card">
+      <h2>無職(宣告が付かなかった4名)</h2>
+      <p>宣告が付かなかった4名は整列位置から<b>1歩前へ</b>出る。列内の西→東番号で<b>無1〜無4</b>が決まる。</p>
+      <ul>
+        <li><b>無1</b> = 西外周／<b>無4</b> = 東外周</li>
+        <li><b>無2</b> = 北西／<b>無3</b> = 北東</li>
+      </ul>
+      <p>無職4名はすべて<b class="north">北半分</b>に集まる形になる。</p>
+    </div>
+    <div class="card">
+      <h2>ポイント</h2>
+      <p>無職・宣告どちらも<b>1歩前/1歩下がる</b>だけで自然に散開が完成する。整列さえ崩さなければ迷わない。</p>
+    </div>
+  `
+});
+
+// ---------- P4: 百雷→中央入りタイミング ----------
+pages.push({
+  title:'ページ4: 百雷→中央入りタイミング',
+  sub:'百雷(足元円)着弾が合図。先組=同時に中央／後組=ヘヴィ3発目を見てから',
+  action:'北2名+内周宣告2名は即中央へ／残り4名はヘヴィ3発目を見てから中央へ',
+  build(svg){
+    baseField(svg, CX, CY, R, {markers:false});
+    dashCircle(svg, CX, CY, 44, '#3ddc84', '中央');
+    // 先組(A): 無2 無3 死1 死4
+    const aRoles = [['無2',315,R*0.55],['無3',45,R*0.55],['死1',270,R*0.55],['死4',90,R*0.55]];
+    aRoles.forEach(([lbl,a,r])=>{
+      const p = pol(CX,CY,a,r);
+      token(svg,p.x,p.y,lbl,'#3ddc84', true);
+      arrow(svg,p.x,p.y, CX+ (p.x-CX)*0.25, CY+(p.y-CY)*0.25, '#3ddc84', 2.5);
+    });
+    // 後組(B): 無1 無4 死2 死3
+    const bRoles = [['無1',270,R+20],['無4',90,R+20],['死2',225,R+15],['死3',135,R+15]];
+    bRoles.forEach(([lbl,a,r])=>{
+      const p = pol(CX,CY,a,r);
+      token(svg,p.x,p.y,lbl,'#ffcc4d', true);
+    });
+    labelText(svg,CX,CY-R-86,'緑=先組(百雷と同時) 黄=後組(ヘヴィ3発目を見てから)','#8ea0c4',12.5);
+  },
+  infoHTML:`
+    <div class="card">
+      <h2>先組(<span class="g">百雷と同時に中央へ</span>)</h2>
+      <p><b>北2名(無2・無3)</b> ＋ <b>内周の宣告2名(死1・死4)</b></p>
+    </div>
+    <div class="card">
+      <h2>後組(<b class="y">ヘヴィ3発目を見てから</b>中央へ)</h2>
+      <p>残り4名(<b>無1・無4・死2・死3</b>)。まず少し外周側へずれてツイスターを回避し、<b>ヘヴィインパクト(リング)3発目に入るタイミング</b>で中央へ。</p>
+    </div>
+  `
+});
+
+// ---------- P5: プレステ前整列とプレステ ----------
+pages.push({
+  title:'ページ5: プレステ前整列とプレステ',
+  sub:'上段=宣告(死2死3中央寄り・死1死4左右)／下段=無職1234',
+  action:'○が付いたら中央へ／×は西側の人が北・東側の人が南／▽□は宣告の対角へ動く',
+  build(svg){
+    baseField(svg, CX, CY, R*0.75, {markers:false});
+    const R2 = R*0.75;
+    const nPos = pol(CX,CY,0,R2*0.55), sPos = pol(CX,CY,180,R2*0.55);
+    const wPos = pol(CX,CY,270,R2*0.85), ePos = pol(CX,CY,90,R2*0.85);
+    const nwPos = pol(CX,CY,315,R2*0.6), nePos = pol(CX,CY,45,R2*0.6);
+    const swPos = pol(CX,CY,225,R2*0.85), sePos = pol(CX,CY,135,R2*0.85);
+    token(svg,nPos.x,nPos.y,'×','#8ea0c4', true); labelText(svg,nPos.x,nPos.y-24,'無職','#8ea0c4',11);
+    token(svg,sPos.x,sPos.y,'×','#8ea0c4', true); labelText(svg,sPos.x,sPos.y+26,'無職','#8ea0c4',11);
+    token(svg,wPos.x,wPos.y,'死1','#3ddc84', true); labelText(svg,wPos.x-30,wPos.y,'○','#3ddc84',15);
+    token(svg,ePos.x,ePos.y,'死4','#3ddc84', true); labelText(svg,ePos.x+30,ePos.y,'○','#3ddc84',15);
+    token(svg,nwPos.x,nwPos.y,'死2','#ffcc4d', true);
+    token(svg,nePos.x,nePos.y,'死3','#c96bff', true);
+    token(svg,swPos.x,swPos.y,'▽/□','#ffcc4d', true);
+    token(svg,sePos.x,sePos.y,'▽/□','#c96bff', true);
+    arrow(svg, nwPos.x, nwPos.y+18, sePos.x-14, sePos.y-14, '#ffcc4d', 2);
+    arrow(svg, nePos.x, nePos.y+18, swPos.x+14, swPos.y-14, '#c96bff', 2);
+    labelText(svg,CX,CY-R2-30,'無職▽□は宣告と同じ図形の対角へ','#8ea0c4',12.5);
+  },
+  infoHTML:`
+    <div class="card">
+      <h2>プレステ前整列(中央・自動)</h2>
+      <p><b>上段=宣告</b>(死2・死3が北寄り中央／死1=西・死4=東)、<b>下段=無職</b>が西から1234で整列。</p>
+    </div>
+    <div class="card">
+      <h2>プレステマーカー</h2>
+      <ul>
+        <li>宣告に<b>×は付かない</b>。ゲリックから<b>最遠の宣告2名(死1・死4)が必ず○</b> → <b class="g">○が付いたら中央へ</b>。死2・死3は▽と□を1つずつ(その場固定)。</li>
+        <li>無職は<b>×2・▽1・□1</b>がランダム。<b>×=並びの西側が北へ・東側が南へ</b>。<b>▽□は無職が動いて宣告の対面(対角)に合わせる</b>(北西⇔南東、北東⇔南西)。</li>
+      </ul>
+    </div>
+  `
+});
+
+// ---------- P6: 視線→ノックバック→白円 ----------
+pages.push({
+  title:'ページ6: 視線→ノックバック→白円',
+  sub:'邪竜の邪眼＋トールダンの視線(対角/135°)を見ない向きへ → ノックバックで8方向 → 宣告は白円を踏む',
+  action:'視線が来たら90°以上ずらす → ノックバック後、宣告持ちは白円(サルヴェーションウィング)へ',
+  build(svg){
+    baseField(svg, CX, CY, R, {markers:false});
+    const gA = pol(CX,CY,60,R+18), gB = pol(CX,CY,240,R+18);
+    E(svg,'circle',{cx:gA.x,cy:gA.y,r:15,fill:'#3a2233',stroke:'#ff9dc7','stroke-width':2.5});
+    labelText(svg,gA.x,gA.y+4,'邪眼','#ff9dc7',10);
+    E(svg,'circle',{cx:gB.x,cy:gB.y,r:15,fill:'#3a2233',stroke:'#ffcc4d','stroke-width':2.5});
+    labelText(svg,gB.x,gB.y+4,'王','#ffcc4d',10);
+    // 危険扇(視線方向90度)
+    fanArea(svg, CX, CY, R, 15, 105, '#ff5c6c', '', 0);
+    fanArea(svg, CX, CY, R, 195, 285, '#ff5c6c', '', 0);
+    // 安全な向き例
+    const safe = pol(CX,CY,330,R*0.6);
+    dashCircle(svg, safe.x, safe.y, 26, '#3ddc84', '安全な向き(例)');
+    // 白円(サルヴェーションウィング) 4か所(無職の百雷跡)
+    const wings = [[270,R+20,'死1→西外'],[315,R*0.55,'死2→北西'],[45,R*0.55,'死3→北東'],[90,R+20,'死4→東外']];
+    wings.forEach(([a,r,lbl])=>{
+      const p = pol(CX,CY,a,r);
+      E(svg,'circle',{cx:p.x,cy:p.y,r:13,fill:'#fff',opacity:0.15,stroke:'#fff','stroke-width':2});
+    });
+    labelText(svg,CX,CY-R-86,'白丸=無職の百雷跡=サルヴェーションウィング','#e8edf7',12.5);
+  },
+  infoHTML:`
+    <div class="card">
+      <h2>視線(邪竜の邪眼＋トールダン)</h2>
+      <p>2本の視線が<b>対角(135°)または180°</b>離れて外周に出現。<b>正面90°判定</b>なので視線に対して<b>正面を外す</b>向きに調整して待機。</p>
+      <p class="y" style="color:var(--warn);">裏技: 視線から<b>マーカー1個半ずらす</b>だけで正面90°判定を確実に外せる。</p>
+    </div>
+    <div class="card">
+      <h2>ノックバック→白円</h2>
+      <p><b>フェイスアンムーブ</b>で8方向へ吹き飛ぶ → <b>宣告4名</b>は自分の飛び先近くの<b>サルヴェーションウィング(白円＝無職の百雷跡)</b>を踏んでデバフ解除(死1→西外／死2→北西／死3→北東／死4→東外)。無職は踏まなくてよい。</p>
+    </div>
+  `
+});
+
+// ---------- P7: タイムライン表(ガントチャート風) ----------
+pages.push({
+  title:'ページ7: タイムライン表(全役割まとめ)',
+  sub:'横軸=時間フェーズ／縦=宣告・無職の各グループ。バーの位置で「今どこにいるべきか」が一目でわかる',
+  bodyType:'gantt',
+  phases:['①整列\n北決め','②宣告付与\n前後移動','③8方向\n散開','④百雷\n中央入り','⑤再整列\nプレステ','⑥視線\nノックバック\n白円','⑦ホーリー\nメテオ'],
+  rows:[
+    { label:'宣告(死1死4)', color:'#3ddc84',
+      segs:[
+        {from:0,to:1,text:'西/東で整列'},
+        {from:1,to:2,text:'1歩下がる'},
+        {from:2,to:3,text:'西内/東内へ'},
+        {from:3,to:4,text:'百雷と同時に中央へ'},
+        {from:4,to:5,text:'西/東(必ず○)→中央へ寄る'},
+        {from:5,to:6,text:'視線調整→白円を踏む'},
+        {from:6,to:7,text:'聖紋破壊(全員)'},
+      ]},
+    { label:'宣告(死2死3)', color:'#c96bff',
+      segs:[
+        {from:0,to:1,text:'西/東で整列'},
+        {from:1,to:2,text:'1歩下がる'},
+        {from:2,to:3,text:'南西/南東外周寄り'},
+        {from:3,to:4,text:'ヘヴィ3発目を見て中央へ'},
+        {from:4,to:5,text:'北寄り中央(▽□)→その場固定'},
+        {from:5,to:6,text:'視線調整→白円を踏む'},
+        {from:6,to:7,text:'聖紋破壊(全員)'},
+      ]},
+    { label:'無職(無2無3)', color:'#5fb3ff',
+      segs:[
+        {from:0,to:1,text:'西/東で整列'},
+        {from:1,to:2,text:'1歩前へ'},
+        {from:2,to:3,text:'北西/北東へ'},
+        {from:3,to:4,text:'百雷と同時に中央へ'},
+        {from:4,to:5,text:'南側整列→×/▽□確定→行き先へ'},
+        {from:5,to:6,text:'視線調整(白円は踏まない)'},
+        {from:6,to:7,text:'聖紋破壊(全員)'},
+      ]},
+    { label:'無職(無1無4)', color:'#ffcc4d',
+      segs:[
+        {from:0,to:1,text:'西/東で整列'},
+        {from:1,to:2,text:'1歩前へ'},
+        {from:2,to:3,text:'西外/東外へ'},
+        {from:3,to:4,text:'ヘヴィ3発目を見て中央へ'},
+        {from:4,to:5,text:'南側整列→×/▽□確定→行き先へ'},
+        {from:5,to:6,text:'視線調整(白円は踏まない)'},
+        {from:6,to:7,text:'聖紋破壊(全員)'},
+      ]},
+  ],
+  action:'迷ったら今のフェーズの列を縦に見る → 自分の行のバーが今どこにいるべきかを示す',
+});
+
+// ===================== 描画・ページ送り =====================
+const stage = document.getElementById('stage');
+let cur = 0;
+
+function buildGanttHTML(p){
+  const nPhases = p.phases.length;
+  const colW = 100/nPhases;
+  const headerCells = p.phases.map(ph=>`<div class="gph">${ph.replace(/\n/g,'<br>')}</div>`).join('');
+  const rowsHTML = p.rows.map(r=>{
+    const segsHTML = r.segs.map(s=>{
+      const left = s.from*colW, width=(s.to-s.from)*colW;
+      return `<div class="gbar" style="left:${left}%;width:${width}%;background:${r.color}22;border:2px solid ${r.color};color:${r.color};">${s.text}</div>`;
+    }).join('');
+    return `<div class="grow"><div class="glabel" style="color:${r.color};border-color:${r.color};">${r.label}</div><div class="gtrack">${segsHTML}</div></div>`;
+  }).join('');
+  const dividers = p.phases.map((_,i)=> i===0? '' : `<div class="gdiv" style="left:${i*colW}%;"></div>`).join('');
+  return `
+    <div class="ganttWrap">
+      <div class="gheaderRow"><div class="glabel gcorner"></div><div class="gheaderTrack">${headerCells}${dividers}</div></div>
+      ${rowsHTML}
+    </div>
+  `;
+}
+
+function buildSlideDom(p, idx){
+  const div = document.createElement('div');
+  div.className='slide';
+  if(p.bodyType==='gantt'){
+    div.innerHTML = `
+      <h1>${p.title}</h1>
+      <div class="sub">${p.sub}</div>
+      <div class="body" style="flex-direction:column;">
+        ${buildGanttHTML(p)}
+        <div class="action" style="margin-top:14px;"><div class="label">使い方</div><div class="big" style="font-size:20px;">${p.action}</div></div>
+      </div>
+    `;
+    stage.appendChild(div);
+    return div;
+  }
+  div.innerHTML = `
+    <h1>${p.title}</h1>
+    <div class="sub">${p.sub}</div>
+    <div class="body">
+      <div class="diagWrap"><svg viewBox="0 0 420 500" xmlns="${ns}"></svg></div>
+      <div class="infoCol">
+        ${p.infoHTML}
+        <div class="action"><div class="label">自分がこれだったら</div><div class="big">${p.action}</div></div>
+      </div>
+    </div>
+  `;
+  stage.appendChild(div);
+  const svg = div.querySelector('svg');
+  p.build(svg);
+  return div;
+}
+
+const slideEls = pages.map((p,i)=>buildSlideDom(p,i));
+
+const dotsWrap = document.getElementById('pageDots');
+pages.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' active':'');
+  d.onclick=()=>goTo(i);
+  dotsWrap.appendChild(d);
+});
+const dotEls = [...dotsWrap.children];
+
+function goTo(i){
+  if(i<0) i=0;
+  if(i>=pages.length) i=pages.length-1;
+  slideEls[cur].classList.remove('active');
+  dotEls[cur].classList.remove('active');
+  cur=i;
+  slideEls[cur].classList.add('active');
+  dotEls[cur].classList.add('active');
+  document.getElementById('pageNum').textContent = (cur+1)+' / '+pages.length;
+}
+document.getElementById('prevBtn').onclick=()=>goTo(cur-1);
+document.getElementById('nextBtn').onclick=()=>goTo(cur+1);
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key===' ') goTo(cur+1);
+  else if(e.key==='ArrowLeft') goTo(cur-1);
+});
+stage.addEventListener('click', e=>{
+  const rect = stage.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  if(x > rect.width*0.7) goTo(cur+1);
+  else if(x < rect.width*0.3) goTo(cur-1);
+});
+
+// 16:9スケーリング(画面内にぴったり収める)
+function fitStage(){
+  const W=1280,H=720;
+  const scale = Math.min(window.innerWidth/W, window.innerHeight/H);
+  slideEls.forEach(s=>{ s.style.transform=`translate(-50%,-50%) scale(${scale})`; });
+}
+window.addEventListener('resize', fitStage);
+fitStage();
+goTo(0);
+</script>
+</body>
+</html>
